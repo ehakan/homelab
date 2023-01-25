@@ -1,7 +1,9 @@
 #!/bin/sh
 
-# create a cluster with the pull through cache registries
+# create pull through caches
+docker-compose up -d
 
+# create a cluster with the pull through cache registries
 talosctl cluster create \
     --provisioner docker \
     --wait \
