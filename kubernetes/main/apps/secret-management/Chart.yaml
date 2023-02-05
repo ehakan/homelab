@@ -1,0 +1,15 @@
+apiVersion: v2
+name: "secret-management"
+description: Collection of secret management services for the homelab
+
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+
+dependencies:
+  - name: "external-secrets"
+    repository: "https://charts.external-secrets.io" 
+    version: "0.7.2"
+  - name: "connect"
+    repository: "https://1password.github.io/connect-helm-charts/"
+    version: "1.10.0"

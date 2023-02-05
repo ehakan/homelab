@@ -1,0 +1,9 @@
+dependencies:
+- name: external-secrets
+  repository: https://charts.external-secrets.io
+  version: 0.7.2
+- name: connect
+  repository: https://1password.github.io/connect-helm-charts/
+  version: 1.10.0
+digest: sha256:08165f4a7ef350e86e0565ce7650f374ff55b36ea71b500d65b5fe32c4445e30
+generated: "2023-02-05T12:06:55.509688+03:00"
