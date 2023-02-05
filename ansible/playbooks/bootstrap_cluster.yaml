@@ -1,0 +1,33 @@
+---
+- name: Bootstrap cluster
+  hosts: localhost
+  tasks:
+    - name: Apply "secret-management" app namespace
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: secret-management
+
+    - name: Apply 1Password Credentials
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          type: Opaque
+          metadata:
+            name: op-credentials
+            namespace: secret-management
+          data:
+            "1password-credentials.json": "{{ lookup('file', '1password-credentials.json') | tojson | b64encode }}"
+
+    - name: Add secret-management chart before bootstrap
+      kubernetes.core.helm:
+        release_name: secret-management
+        chart_ref: "{{ playbook_dir }}/../../kubernetes/main/apps/secret-management"
+        release_namespace: secret-management
+        create_namespace: true
+        state: present

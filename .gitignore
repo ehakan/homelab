@@ -5,3 +5,6 @@
 .idea/
 .vscode/
 
+# common secrets, try not to leak them :)
+1password-credentials.json
+1password-credentials.*.json
