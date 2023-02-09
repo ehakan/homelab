@@ -1,3 +1,5 @@
+### MISC
+
 # macos, please just stop
 .DS_Store
 
@@ -5,6 +7,14 @@
 .idea/
 .vscode/
 
+### KUBERNETES
+
+**/kubernetes/main/apps/secret-management/**/charts/
+
 # common secrets, try not to leak them :)
 1password-credentials.json
 1password-credentials.*.json
+1password-access-token.txt
+
+
+
