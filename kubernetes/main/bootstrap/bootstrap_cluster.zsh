@@ -1,6 +1,6 @@
 #!/bin/zsh
 
-### STEP 0a: Script Setup
+### STEP 0: Script Setup
 
 # Get the kubernetes cluster dir (main for this script)
 kube_cluster_dir=${0:a:h:h}
@@ -21,7 +21,8 @@ kubectl create secret generic \
   --from-literal=token=$access_token
 
 # op-credentials is used by 1password-connect service to connect to 1p servers
-credentials=$(op read op://homelab/homelab-localdev-credentials-file/1password-credentials.json)
+# 1password wants this secret as base64 encoded
+credentials=$(op read op://homelab/homelab-localdev-credentials-file/1password-credentials.json | base64)
 kubectl create secret generic \
   --namespace secret-management \
   op-credentials \
