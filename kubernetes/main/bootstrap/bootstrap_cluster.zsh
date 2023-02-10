@@ -76,12 +76,14 @@ kubectl apply -k \
 kubectl wait \
   --namespace argocd \
   --for jsonpath='{.status.phase}'=Running \
+  --timeout 300s \
   --all \
   pods
 kubectl wait \
   --namespace argocd \
   --for condition=Ready \
   --all \
+  --timeout 300s \
   pods
 
 # Install the "App of Apps" ArgoCD Application manifest
