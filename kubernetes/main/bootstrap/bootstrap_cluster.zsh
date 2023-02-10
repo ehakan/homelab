@@ -9,6 +9,11 @@ kube_cluster_dir=${0:a:h:h}
 ### STEP 1: Inject Initial Secrets
 ### Create the correct namespaces and apply the secrets required in the cluster
 
+# TODO: Use kubectl apply for create or patch behavior while creating secrets.
+# Current secret creation with kubectl create does not patch existing secrets.
+
+# TODO: Replace raw secrets with external secrets of onepassword on successful bootstrap.
+
 # Create secret-management namespace
 kubectl apply -f \
   $kube_cluster_dir/apps/secret-management/core/namespace.yaml
@@ -55,16 +60,33 @@ kubectl wait \
   --for condition=Ready \
   pods
 
-# Setup ClusterSecretStore
+# Setup ClusterSecretStore and validation secret
 kubectl apply -k \
   $kube_cluster_dir/apps/secret-management/resources
 
+# TODO: verify validation secret
 
-# TODO: install argocd
+### STEP 3: Setup GitOps
 
-# TODO: wait for argocd to settle down
+# Install ArgoCD
+kubectl apply -k \
+  $kube_cluster_dir/apps/gitops/argocd
 
-# TODO: apply the app-of-apps manifests
+# Wait for ArgoCD to settle down
+kubectl wait \
+  --namespace argocd \
+  --for jsonpath='{.status.phase}'=Running \
+  --all \
+  pods
+kubectl wait \
+  --namespace argocd \
+  --for condition=Ready \
+  --all \
+  pods
+
+# Install the "App of Apps" ArgoCD Application manifest
+kubectl apply -f \
+  $kube_cluster_dir/apps/gitops/applications/genesis.yaml
 
 # TODO: apply confetti only if it's actually successful
 echo "Bootstrap complete! 🎉"
