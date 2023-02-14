@@ -88,7 +88,7 @@ kubectl wait \
 
 # Install the "App of Apps" ArgoCD Application manifest
 kubectl apply -f \
-  $kube_cluster_dir/apps/gitops/applications/genesis.yaml
+  $kube_cluster_dir/apps/gitops/applications/appofapps.yaml
 
 # TODO: apply confetti only if it's actually successful
 echo "Bootstrap complete! 🎉"
