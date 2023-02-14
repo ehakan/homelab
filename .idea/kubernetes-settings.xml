@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="KubernetesSettings">
+    <specSources>
+      <SpecSource>
+        <option name="pathOrUrl" value="https://raw.githubusercontent.com/argoproj/argo-cd/v2.6.1/manifests/install.yaml" />
+      </SpecSource>
+      <SpecSource>
+        <option name="pathOrUrl" value="https://github.com/external-secrets/external-secrets/releases/download/v0.7.2/external-secrets.yaml" />
+      </SpecSource>
+    </specSources>
+  </component>
+</project>

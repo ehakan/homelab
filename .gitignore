@@ -4,8 +4,8 @@
 .DS_Store
 
 # editor/ide specific files
-.idea/
 .vscode/
+
 
 ### KUBERNETES
 
