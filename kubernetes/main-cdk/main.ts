@@ -2,7 +2,7 @@ import { App, Chart, ChartProps, YamlOutputType } from 'cdk8s';
 import { ArgoCdChart } from './charts/gitops/argocd-chart';
 import { SecretManagementBaseChart } from './charts/secret-management/base-chart';
 import { SecretManagementResourcesChart } from "./charts/secret-management/resources-chart";
-import {AppOfAppsChart} from "./charts/gitops/appofapps-chart";
+import { AppOfAppsChart } from "./charts/gitops/appofapps-chart";
 
 const app = new App({
   yamlOutputType: YamlOutputType.FILE_PER_CHART,

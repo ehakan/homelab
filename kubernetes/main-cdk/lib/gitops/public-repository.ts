@@ -16,7 +16,6 @@ export interface PublicRepositoryProps {
   readonly namespace?: string;
 }
 
-
 type GitRepositoryDefinition = {
   type: "git";
 
@@ -53,8 +52,6 @@ type HelmRepositoryDefinition = {
 }
 
 type RepositoryDefinition = GitRepositoryDefinition | HelmRepositoryDefinition;
-
-
 
 /**
 * An ArgoCD Declarative Repository Definition

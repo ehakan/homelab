@@ -12,13 +12,8 @@ export class ArgoCdChart extends Chart {
     super(scope, id, props);
 
     const argocd = new ArgoCd(this, 'argocd');
-
-    // TODO: Setup all declarative configuration options in ArgoCD construct props
-    const argocdConfigMap = argocd.included.apiObjects.find(obj => (obj.name === "argocd-cm" && obj.kind === "ConfigMap"));
-    if (!argocdConfigMap) {
-      throw new Error("Could not find ConfigMap 'argocd-cm' to patch");
-    }
-    argocdConfigMap.addJsonPatch(JsonPatch.add("/data", { "kustomize.buildOptions": "--enable-helm" }));
+    argocd.addSidecarPlugin("cdk8s-ts", "busybox");
+    argocd.patchConfigMap(JsonPatch.add("/data", { "kustomize.buildOptions": "--enable-helm" }));
 
     new PublicRepository(this, 'homelab-repository', {
       repositoryDefinition: {
