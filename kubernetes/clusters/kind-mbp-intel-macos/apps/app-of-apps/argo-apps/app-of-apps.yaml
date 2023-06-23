@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: app-of-apps
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1000"
+spec:
+  source:
+    repoURL: https://github.com/ehakan/homelab.git
+    targetRevision: HEAD
+    path: kubernetes/clusters/kind-mbp-intel-macos/apps/app-of-apps
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  project: "default"
+
+
