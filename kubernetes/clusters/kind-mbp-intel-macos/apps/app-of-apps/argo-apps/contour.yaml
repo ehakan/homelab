@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: contour
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-998"
+spec:
+  source:
+    repoURL: https://github.com/ehakan/homelab.git
+    targetRevision: HEAD
+    path: kubernetes/apps/cluster-traffic/contour/overlays/kind
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: projectcontour
+  project: "default"
+
+

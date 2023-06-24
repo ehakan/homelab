@@ -3,3 +3,9 @@ kind: Kustomization
 
 resources:
   - https://raw.githubusercontent.com/argoproj/argo-cd/v2.7.5/manifests/install.yaml
+
+configMapGenerator:
+  - name: argocd-cm
+    behavior: merge
+    literals:
+      - kustomize.buildOptions=--enable-helm
