@@ -11,6 +11,9 @@
       <SpecSource>
         <option name="pathOrUrl" value="https://github.com/external-secrets/external-secrets/releases/download/v0.9.0/external-secrets.yaml" />
       </SpecSource>
+      <SpecSource>
+        <option name="pathOrUrl" value="https://github.com/cert-manager/cert-manager/releases/download/v1.12.0/cert-manager.yaml" />
+      </SpecSource>
     </specSources>
   </component>
 </project>
