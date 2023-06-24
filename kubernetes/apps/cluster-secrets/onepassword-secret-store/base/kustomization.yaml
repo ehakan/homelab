@@ -1,16 +1,5 @@
-apiVersion: external-secrets.io/v1beta1
-kind: ClusterSecretStore
-metadata:
-  name: onepassword-secret-store
-spec:
-  provider:
-    onepassword:
-      connectHost: http://onepassword-connect.onepassword.svc.cluster.local
-      vaults:
-        homelab: 1
-      auth:
-        secretRef:
-          connectTokenSecretRef:
-            name: onepassword-connect-token
-            key: token
-            namespace: onepassword
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - onepassword-secret-store.yaml

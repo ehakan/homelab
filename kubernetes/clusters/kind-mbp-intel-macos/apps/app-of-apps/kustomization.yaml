@@ -1,0 +1,24 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - argo-apps/app-of-apps.yaml
+  - argo-apps/gateway-api.yaml
+  - argo-apps/contour.yaml
+  - argo-apps/external-secrets.yaml
+  - argo-apps/onepassword-connect.yaml
+
+
+patches:
+  - target:
+      kind: Application
+    patch: |
+      apiVersion: argoproj.io/v1alpha1
+      kind: Application
+      metadata:
+        name: unimportant
+      spec:
+        syncPolicy:
+          automated: {}
+          syncOptions:
+            - CreateNamespace=true
