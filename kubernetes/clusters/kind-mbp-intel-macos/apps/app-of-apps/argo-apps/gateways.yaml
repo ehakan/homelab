@@ -9,7 +9,7 @@ spec:
   source:
     repoURL: https://github.com/ehakan/homelab.git
     targetRevision: HEAD
-    path: kubernetes/apps/cluster-traffic/cluster-issuer/base
+    path: kubernetes/apps/cluster-traffic/gateways/base
   destination:
     server: https://kubernetes.default.svc
     namespace: projectcontour
