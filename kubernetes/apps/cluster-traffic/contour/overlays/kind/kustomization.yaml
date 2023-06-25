@@ -7,3 +7,4 @@ resources:
 components:
   - ../../components/enable-gateway-support
   - ../../components/tolerate-control-plane
+  - ../../components/expose-envoy-nodeport
