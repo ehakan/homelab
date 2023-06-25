@@ -7,7 +7,10 @@ resources:
   - argo-apps/contour.yaml
   - argo-apps/external-secrets.yaml
   - argo-apps/onepassword-connect.yaml
-
+  - argo-apps/onepassword-secret-store.yaml
+  - argo-apps/cert-manager.yaml
+  - argo-apps/cluster-issuer.yaml
+  - argo-apps/gateways.yaml
 
 patches:
   - target:

@@ -12,5 +12,5 @@ spec:
     path: kubernetes/apps/cluster-traffic/cluster-issuer/base
   destination:
     server: https://kubernetes.default.svc
-    namespace: cert-manager
+    namespace: projectcontour
   project: "default"
