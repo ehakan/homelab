@@ -30,6 +30,10 @@ terraform.rc
 
 ### Talos
 
+kubeconfig
 talosconfig
+kubeconfig.*
+talosconfig.*
+
 controlplane.yaml
 worker.yaml
