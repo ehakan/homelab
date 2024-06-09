@@ -12,11 +12,8 @@ resource "talos_machine_configuration_apply" "controlplane" {
   machine_configuration_input = data.talos_machine_configuration.controlplane.machine_configuration
   node                        = "192.168.1.150"
   config_patches = [
-    yamlencode({
-      cluster = {
-        allowSchedulingOnControlPlanes = true
-      }
-    }),
+    local.patches.workloadsOnControlPlane,
+    local.patches.disableDefaultCni,
     yamlencode({
       machine = {
         install = {

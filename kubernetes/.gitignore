@@ -1,0 +1,3 @@
+# This is a kustomize structure, but usage of `helmCharts:`
+# vendors a `charts/` dir along with kustomization.yaml
+charts/
