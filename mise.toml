@@ -1,0 +1,3 @@
+[tools]
+opentofu = "1.11.1"
+talosctl = "1.13.6"
