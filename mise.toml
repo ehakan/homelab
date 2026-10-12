@@ -2,10 +2,6 @@
 opentofu = "1.11.1"
 talosctl = "1.14.2"
 
-[tasks."talos:schematics"]
-description = "Register Talos Image Factory schematics and print image URLs"
-run = "talos/schematics/register.sh"
-
 [env]
 TALOSCONFIG = "{{config_root}}/talos/generated/talosconfig"
 KUBECONFIG = "{{config_root}}/talos/generated/kubeconfig"

@@ -1,0 +1,22 @@
+# Node:     mini-pc (AZW GK35, 8GB), control plane
+# Address:  192.168.11.10/23 via DHCP reservation on the router (kube.lan.ehakan.dev)
+# Image:    schematic ../schematics/controlplane.yaml (Secure Boot)
+# TPM:      none, so no disk encryption
+
+# The default config sets `auto: stable`, which can't be combined with a
+# static hostname.
+apiVersion: v1alpha1
+kind: HostnameConfig
+auto:
+  $patch: delete
+hostname: controlplane
+---
+apiVersion: v1alpha1
+kind: UnattendedInstallConfig
+installer:
+  image: factory.talos.dev/metal-installer-secureboot/2d61dd07b20062062ea671b4d01873506103b67c0f7a4c3fb6cf4ee85585dcb8:v1.14.2
+provisioning:
+  # 256GB SATA SSD, matched by its stable by-id link (/dev/sdX names shift
+  # with USB drives). The drive reports no `serial` attribute.
+  diskSelector:
+    match: '"/dev/disk/by-id/ata-SSD_256GB_2021091400158" in disk.symlinks'

@@ -1,0 +1,11 @@
+# Applied to every node.
+
+# Cilium replaces Flannel and kube-proxy. It's installed after bootstrap and
+# then managed by Argo CD, so Talos deploys no CNI and no kube-proxy.
+apiVersion: v1alpha1
+kind: KubeFlannelCNIConfig
+$patch: delete
+---
+apiVersion: v1alpha1
+kind: KubeProxyConfig
+enabled: false

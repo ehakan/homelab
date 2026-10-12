@@ -1,0 +1,19 @@
+# Applied to control plane nodes.
+
+# Talos API cert: allow `talosctl` to reach the node via the cluster DNS name.
+machine:
+  certSANs:
+    - kube.lan.ehakan.dev
+---
+# Kubernetes API cert: same DNS name as the cluster endpoint.
+apiVersion: v1alpha1
+kind: KubeAPIServerConfig
+certExtraSANs:
+  - kube.lan.ehakan.dev
+---
+# Allow workloads on control plane nodes (removes the default NoSchedule taint).
+apiVersion: v1alpha1
+kind: KubeNodeConfig
+taints:
+  node-role.kubernetes.io/control-plane:
+    $patch: delete
