@@ -1,0 +1,15 @@
+# Node:    desktop (64GB, RTX 5080) — worker for AI workloads, powered on occasionally
+# Boot:    SECURE BOOT (dual-boots Windows) — always use the *-secureboot images
+# Images:  metal-amd64-secureboot.iso / metal-installer-secureboot
+customization:
+  systemExtensions:
+    officialExtensions:
+      # CPU microcode (Intel CPU).
+      - siderolabs/intel-ucode
+
+      # The RTX 5080 is Blackwell: only NVIDIA's open kernel modules support it,
+      # and it needs driver >= 570, so use the -production flavour (595.x as of
+      # Talos v1.14.2). The nonfree-kmod-nvidia-* modules will NOT work here.
+      - siderolabs/nvidia-open-gpu-kernel-modules-production
+      # Must match the driver flavour above (production <-> production).
+      - siderolabs/nvidia-container-toolkit-production

@@ -1,0 +1,8 @@
+# Node:    mini-pc (8GB) — single control plane node
+# Boot:    regular UEFI (no Secure Boot)
+# Images:  metal-amd64.iso / metal-installer
+customization:
+  systemExtensions:
+    officialExtensions:
+      # CPU microcode (Intel CPU).
+      - siderolabs/intel-ucode

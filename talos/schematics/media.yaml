@@ -1,0 +1,17 @@
+# Node:    desktop (16GB, GTX 1050 Ti) — worker for media / transcoding
+# Boot:    regular UEFI (no Secure Boot)
+# Images:  metal-amd64.iso / metal-installer
+customization:
+  systemExtensions:
+    officialExtensions:
+      # CPU microcode (Intel CPU).
+      - siderolabs/intel-ucode
+
+      # The GTX 1050 Ti is Pascal: NVIDIA's open kernel modules require Turing+,
+      # so this node needs the proprietary ("nonfree") modules. Pascal support
+      # ends with the 580 driver branch, so it MUST stay on the -lts flavour
+      # (580.x as of Talos v1.14.2; -production is 595.x and won't drive it).
+      # Before bumping Talos, check that -lts is still on the 580 branch.
+      - siderolabs/nonfree-kmod-nvidia-lts
+      # Must match the driver flavour above (lts <-> lts).
+      - siderolabs/nvidia-container-toolkit-lts
