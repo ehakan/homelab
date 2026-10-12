@@ -7,3 +7,6 @@ talos/images/
 secrets.yaml
 talosconfig
 kubeconfig
+
+# Per-machine mise settings (e.g. OP_ACCOUNT)
+mise.local.toml

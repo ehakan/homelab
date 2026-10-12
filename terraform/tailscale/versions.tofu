@@ -1,0 +1,14 @@
+terraform {
+  required_version = ">= 1.13.0"
+
+  required_providers {
+    tailscale = {
+      source  = "tailscale/tailscale"
+      version = "~> 0.29.2"
+    }
+    onepassword = {
+      source  = "1Password/onepassword"
+      version = "~> 3.3.1"
+    }
+  }
+}
