@@ -1,6 +1,6 @@
 # Node:    mini-pc (8GB) — single control plane node
-# Boot:    regular UEFI (no Secure Boot)
-# Images:  metal-amd64.iso / metal-installer
+# Boot:    SECURE BOOT — always use the *-secureboot images
+# Images:  metal-amd64-secureboot.iso / metal-installer-secureboot
 customization:
   systemExtensions:
     officialExtensions:
