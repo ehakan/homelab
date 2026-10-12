@@ -1,0 +1,13 @@
+# Helm values for the cert-manager chart (cluster/apps/cert-manager.yaml).
+# Defaults: helm show values oci://quay.io/jetstack/charts/cert-manager --version <version>
+
+crds:
+  enabled: true
+
+config:
+  apiVersion: controller.config.cert-manager.io/v1alpha1
+  kind: ControllerConfiguration
+  # Certificates for Gateways (gateway shim) and HTTP-01 challenges via
+  # HTTPRoute. Needs the Gateway API CRDs (gateway-api app) at startup.
+  gatewayAPI:
+    enabled: true

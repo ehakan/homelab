@@ -18,6 +18,7 @@ After the one-time bootstrap below, changes happen only through git: never
 | `gateway-api`       | Gateway API CRDs v1.6.3 (standard channel)                                                       | cluster-wide          |
 | `agentgateway-crds` | agentgateway's own CRDs, v1.6.0                                                                  | cluster-wide          |
 | `agentgateway`      | agentgateway v1.6.0, the Gateway API implementation (GatewayClass `agentgateway`)                | `agentgateway-system` |
+| `cert-manager`      | cert-manager v1.21.2, with Gateway API support                                                   | `cert-manager`        |
 | `external-secrets`  | External Secrets Operator 2.12.0 and the 1Password ClusterSecretStores (see [Secrets](#secrets)) | `external-secrets`    |
 
 Traffic into the cluster goes through Gateway API (`Gateway`, `HTTPRoute`,
@@ -80,7 +81,8 @@ secret from 1Password with them. Make sure the service accounts exist before exe
 ```fish
 kubectl create namespace external-secrets
 for vault in homelab-cluster homelab-management
-  op read "op://homelab-bootstrap/external-secrets-$vault/credential" \
+  # --no-newline: a trailing newline breaks the token.
+  op read --no-newline "op://homelab-bootstrap/external-secrets-$vault/credential" \
     | kubectl -n external-secrets create secret generic onepassword-$vault \
         --from-file=token=/dev/stdin
 end
@@ -101,8 +103,8 @@ This is the last manual change to the cluster.
 - `argocd` and `cilium` adopt what steps 1–2 installed. `argocd` applies the
   patches from [`configs/argocd/`](configs/argocd), which restarts the Argo CD
   pods.
-- `gateway-api`, `agentgateway-crds`, `agentgateway` and `external-secrets`
-  are installed fresh. `agentgateway` and `external-secrets` may fail their
+- `gateway-api`, `agentgateway-crds`, `agentgateway`, `cert-manager` and
+  `external-secrets` are installed fresh. `agentgateway` and `external-secrets` may fail their
   first sync attempts until their CRDs and webhooks are up, then succeed on
   retry.
 
@@ -112,6 +114,14 @@ Wait until everything is `Synced` and `Healthy`:
 kubectl -n argocd get applications --watch
 kubectl get gatewayclass agentgateway   # created by the agentgateway controller
 kubectl get clustersecretstores   # both Valid, Ready
+```
+
+cert-manager only enables its Gateway API support if the Gateway API CRDs
+existed when it started. If it came up first, it logs that the CRDs are
+missing; restart it once they exist:
+
+```sh
+kubectl -n cert-manager rollout restart deployment/cert-manager
 ```
 
 ### 6. Log in
