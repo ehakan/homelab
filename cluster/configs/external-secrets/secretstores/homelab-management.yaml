@@ -1,0 +1,25 @@
+# Management secrets (API tokens, admin credentials): the 1Password vault
+# `homelab-management`. Only the namespaces listed below can use it; add a
+# namespace here before writing an ExternalSecret in it. Usage is the same as
+# homelab-cluster.yaml with `name: homelab-management`.
+apiVersion: external-secrets.io/v1
+kind: ClusterSecretStore
+metadata:
+  name: homelab-management
+  annotations:
+    # After the operator (CRDs, webhook) is up.
+    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  conditions:
+    - namespaces:
+        - argocd
+  provider:
+    onepasswordSDK:
+      vault: homelab-management
+      auth:
+        # Created by hand during bootstrap; never in git.
+        serviceAccountSecretRef:
+          namespace: external-secrets
+          name: onepassword-homelab-management
+          key: token

@@ -1,0 +1,28 @@
+# Application secrets: the 1Password vault `homelab-cluster`, readable from
+# every namespace. Reference it from an ExternalSecret with:
+#
+#   secretStoreRef:
+#     kind: ClusterSecretStore
+#     name: homelab-cluster
+#   data:
+#     - secretKey: password
+#       remoteRef:
+#         key: <item>/<field>        # or <item>/<section>/<field>
+apiVersion: external-secrets.io/v1
+kind: ClusterSecretStore
+metadata:
+  name: homelab-cluster
+  annotations:
+    # After the operator (CRDs, webhook) is up.
+    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  provider:
+    onepasswordSDK:
+      vault: homelab-cluster
+      auth:
+        # Created by hand during bootstrap; never in git.
+        serviceAccountSecretRef:
+          namespace: external-secrets
+          name: onepassword-homelab-cluster
+          key: token

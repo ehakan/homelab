@@ -1,0 +1,2 @@
+# Helm values for the external-secrets chart (cluster/apps/external-secrets.yaml).
+# Defaults: helm show values external-secrets --repo https://charts.external-secrets.io --version <version>
