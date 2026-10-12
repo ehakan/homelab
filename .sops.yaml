@@ -1,0 +1,5 @@
+# Recipient: SSH key `sops-talos` in the 1Password vault `homelab-bootstrap`.
+# Decryption reads its private key via SOPS_AGE_SSH_PRIVATE_KEY_CMD (mise.toml).
+creation_rules:
+  - path_regex: \.sops\.yaml$
+    age: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAQCc/cq/QWv5AKFQ139lKina8nRZxQchZVplto6IFuJ

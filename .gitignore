@@ -1,0 +1,9 @@
+# Talos: rendered configs/credentials and downloaded images
+talos/generated/
+talos/images/
+*.iso
+
+# Plaintext credentials, wherever they end up
+secrets.yaml
+talosconfig
+kubeconfig

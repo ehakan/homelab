@@ -5,3 +5,8 @@ talosctl = "1.14.2"
 [tasks."talos:schematics"]
 description = "Register Talos Image Factory schematics and print image URLs"
 run = "talos/schematics/register.sh"
+
+[env]
+TALOSCONFIG = "{{config_root}}/talos/generated/talosconfig"
+KUBECONFIG = "{{config_root}}/talos/generated/kubeconfig"
+SOPS_AGE_SSH_PRIVATE_KEY_CMD = "op read 'op://homelab-bootstrap/sops-talos/private key?ssh-format=openssh'"
