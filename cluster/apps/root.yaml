@@ -1,0 +1,20 @@
+# App-of-apps: syncs every Application in cluster/apps/, including this one,
+# so the root app manages itself too. Applied once by hand during bootstrap.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/ehakan/homelab.git
+    targetRevision: main
+    path: cluster/apps
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

@@ -1,0 +1,25 @@
+# agentgateway's own CRDs (policies, backends, ...).
+# The actual Gateway API CRDs come from the gateway-api Application.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: agentgateway-crds
+  namespace: argocd
+spec:
+  project: default
+  source:
+    # OCI registry: Argo CD expects no oci:// scheme here.
+    repoURL: cr.agentgateway.dev/charts
+    chart: agentgateway-crds
+    targetRevision: v1.6.0
+    helm:
+      releaseName: agentgateway-crds
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: agentgateway-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true

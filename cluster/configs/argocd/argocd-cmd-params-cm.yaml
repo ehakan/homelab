@@ -1,0 +1,10 @@
+# Component flags.
+# All options: https://argo-cd.readthedocs.io/en/stable/operator-manual/argocd-cmd-params-cm-yaml/
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cmd-params-cm
+data:
+  # Serve plain HTTP; TLS terminates at the Gateway once Argo CD gets an
+  # HTTPRoute. Until then: kubectl port-forward.
+  server.insecure: "true"

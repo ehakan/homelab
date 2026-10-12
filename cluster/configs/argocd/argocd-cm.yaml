@@ -1,0 +1,15 @@
+# General settings.
+# All options: https://argo-cd.readthedocs.io/en/stable/operator-manual/argocd-cm-yaml/
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+data:
+  url: https://argocd.lan.ehakan.dev
+  # Local admin login (password in the argocd-initial-admin-secret Secret)
+  # until SSO is set up.
+  admin.enabled: "true"
+  # No shell into pods from the UI.
+  exec.enabled: "false"
+  # How often apps are compared against git when no webhook arrives.
+  timeout.reconciliation: 180s

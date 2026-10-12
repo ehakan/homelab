@@ -1,0 +1,35 @@
+amends "package://github.com/jdx/hk/releases/download/v2.5.0/hk@2.5.0#/Config.pkl"
+
+// Git hooks (https://hk.jdx.dev). Tools come from mise.toml; install the hooks
+// once per clone with `hk install --mise`.
+
+// Secret scanning. Not the `Builtins.gitleaks` step: that one scans the whole
+// working tree, including the gitignored talos/generated/ with real cluster
+// credentials, and would fail every run.
+local gitleaks_staged = new Step {
+  // Only what's about to be committed.
+  check = "gitleaks git --pre-commit --staged --redact --verbose --no-banner"
+}
+local gitleaks_history = new Step {
+  // Every commit in the repo, before any of it leaves the machine.
+  check = "gitleaks git --redact --verbose --no-banner"
+}
+
+hooks {
+  ["pre-commit"] {
+    steps {
+      ["gitleaks"] = gitleaks_staged
+    }
+  }
+  ["pre-push"] {
+    steps {
+      ["gitleaks"] = gitleaks_history
+    }
+  }
+  // `hk check` / `hk run check`: on-demand full scan.
+  ["check"] {
+    steps {
+      ["gitleaks"] = gitleaks_history
+    }
+  }
+}

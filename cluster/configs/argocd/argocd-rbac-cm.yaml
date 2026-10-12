@@ -1,0 +1,8 @@
+# RBAC. Docs: https://argo-cd.readthedocs.io/en/stable/operator-manual/rbac/
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-rbac-cm
+data:
+  # Logged-in users without an explicit role get read-only access.
+  policy.default: role:readonly

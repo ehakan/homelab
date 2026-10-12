@@ -1,0 +1,33 @@
+# agentgateway control plane: the cluster's Gateway API implementation
+# (GatewayClass `agentgateway`). Retries until the CRDs from gateway-api and
+# agentgateway-crds exist.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: agentgateway
+  namespace: argocd
+spec:
+  project: default
+  source:
+    # OCI registry: Argo CD expects no oci:// scheme here.
+    repoURL: cr.agentgateway.dev/charts
+    chart: agentgateway
+    targetRevision: v1.6.0
+    helm:
+      releaseName: agentgateway
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: agentgateway-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 10m
