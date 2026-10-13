@@ -15,3 +15,12 @@ patches:
   - path: argocd-cmd-params-cm.yaml
   - path: argocd-rbac-cm.yaml
   - path: argocd-server-service.yaml
+  # No Dex: SSO goes straight to authentik (oidc.config in argocd-cm.yaml), and
+  # Argo CD only uses Dex when dex.config is set.
+  - target:
+      name: argocd-dex-server.*
+    patch: |
+      $patch: delete
+      kind: Deployment
+      metadata:
+        name: argocd-dex-server
