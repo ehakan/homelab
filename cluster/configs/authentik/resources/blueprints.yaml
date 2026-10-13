@@ -30,6 +30,12 @@ data:
     metadata:
       name: homelab - users
     entries:
+      # The groups referenced below must exist first.
+      - model: authentik_blueprints.metaapplyblueprint
+        attrs:
+          identifiers:
+            name: homelab - groups
+          required: true
       # Day-to-day admin account. Set its password (or a passkey) as akadmin,
       # the break-glass user.
       - model: authentik_core.user
