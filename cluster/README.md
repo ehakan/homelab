@@ -143,7 +143,11 @@ kubectl -n cert-manager rollout restart deployment/cert-manager
 ### 6. Log in
 
 Once `gateways` is synced, Argo CD is at <https://argocd.lab.ehakan.dev> (LAN
-and tailnet), for the UI and the CLI. Log in as `admin`, password from the
+and tailnet), for the UI and the CLI. Normally sign in through authentik ("Log
+in via authentik", or `argocd login argocd.lab.ehakan.dev --sso`); members of
+the authentik group `admins` are Argo CD admins, nobody else gets in.
+
+Until authentik is up, or when it's down, log in as `admin`, password from the
 1Password item `argocd-admin` in `homelab-management`
 ([`configs/argocd/admin-password.yaml`](configs/argocd/admin-password.yaml)):
 
