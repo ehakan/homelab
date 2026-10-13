@@ -1,0 +1,18 @@
+# A single PostgreSQL instance on the node's local-storage partition: no
+# replicas, no failover. Each app gets its own role and database, see
+# authentik.yaml. Passwords come from the homelab-generated store.
+#
+# Connect from an app as <role>@management-rw.db-management.svc:5432.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: management
+spec:
+  instances: 1
+  # Pinned, so operator upgrades don't restart the database with a new image.
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.6-standard-trixie
+  # With one instance, a PodDisruptionBudget would block draining the node.
+  enablePDB: false
+  storage:
+    storageClass: local-path
+    size: 10Gi

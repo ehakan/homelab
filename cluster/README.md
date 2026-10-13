@@ -23,6 +23,8 @@ After the one-time bootstrap below, changes happen only through git: never
 | `gateways`               | The `internal` and `public` Gateways and their certificates (see [Gateways](#gateways))                           | `gateway`             |
 | `tailscale-operator`     | Tailscale operator 1.102.4 and the subnet router for the tailnet                                                  | `tailscale`           |
 | `local-path-provisioner` | local-path-provisioner v0.0.37: default StorageClass `local-path`, volumes on the Talos `local-storage` partition | `local-path-storage`  |
+| `cloudnative-pg`         | CloudNativePG operator 1.30.1 (chart 0.29.1)                                                                      | `cnpg-system`         |
+| `db-management`          | PostgreSQL cluster `management` (one instance), one database per management app                                 | `db-management`       |
 
 Traffic into the cluster goes through Gateway API (`Gateway`, `HTTPRoute`,
 ...) served by agentgateway. Don't use `Ingress` resources.
@@ -83,7 +85,7 @@ secret from 1Password with them. Make sure the service accounts exist before exe
 
 ```fish
 kubectl create namespace external-secrets
-for vault in homelab-cluster homelab-management
+for vault in homelab-cluster homelab-management homelab-generated
   # --no-newline: a trailing newline breaks the token.
   op read --no-newline "op://homelab-bootstrap/external-secrets-$vault/credential" \
     | kubectl -n external-secrets create secret generic onepassword-$vault \
@@ -168,15 +170,23 @@ one of the ClusterSecretStores (example in
 | `homelab-bootstrap`  | Talos sops key, External Secrets service account tokens | none                 | never read by the cluster                                                                       |
 | `homelab-management` | API tokens, admin credentials                           | `homelab-management` | namespaces listed in [its store](configs/external-secrets/secretstores/homelab-management.yaml) |
 | `homelab-cluster`    | application secrets                                     | `homelab-cluster`    | every namespace                                                                                 |
+| `homelab-generated`  | secrets the cluster generates (read and write)          | `homelab-generated`  | namespaces listed in [its store](configs/external-secrets/secretstores/homelab-generated.yaml)  |
 
 - Keys are `<item>/<field>` or `<item>/<section>/<field>`. Item names must be
   unique within the vault.
+- Secrets nobody types in (database passwords, signing keys, OIDC client
+  secrets) are generated: a `PushSecret` with `updatePolicy: IfNotExists`
+  creates the item in `homelab-generated` once, and `ExternalSecret`s read it
+  like any other. Example:
+  [`configs/db-management/authentik.yaml`](configs/db-management/authentik.yaml).
+  To rotate one, delete its 1Password item.
 - Use `refreshInterval: 1h` unless a secret needs to change faster: service
   account reads are rate-limited per hour.
 
 One-time 1Password setup (before the bootstrap):
 
-One read-only service account per vault, each token saved straight into
+One service account per vault, read-only except for `homelab-generated`, each
+token saved straight into
 `homelab-bootstrap` as an API Credential item `external-secrets-<vault>`
 (field `credential`). The token is only shown once, and a service account's
 vault access can't be changed later: to change it, create a new one.
@@ -184,9 +194,12 @@ vault access can't be changed later: to change it, create a new one.
 ```fish
 op vault create homelab-management
 op vault create homelab-cluster
+op vault create homelab-generated
 
-for vault in homelab-cluster homelab-management
-  set -l token (op service-account create external-secrets-$vault --vault $vault:read_items --raw)
+for vault in homelab-cluster homelab-management homelab-generated
+  set -l access read_items
+  test $vault = homelab-generated; and set access read_items,write_items
+  set -l token (op service-account create external-secrets-$vault --vault $vault:$access --raw)
   op item create --vault homelab-bootstrap --category 'API Credential' \
     --title external-secrets-$vault "credential=$token"
   set -e token

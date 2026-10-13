@@ -1,0 +1,2 @@
+# Helm values for the cloudnative-pg chart (cluster/apps/cloudnative-pg.yaml).
+# Defaults: helm show values cloudnative-pg --repo https://cloudnative-pg.github.io/charts --version <version>
