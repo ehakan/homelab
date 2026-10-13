@@ -1,53 +1,17 @@
-# authentik's role and database. The password is generated once into the
-# 1Password item `authentik-db` (vault homelab-generated) and read back from
-# there, here and in authentik's namespace.
-apiVersion: external-secrets.io/v1alpha1
-kind: PushSecret
+# authentik was removed. The database is dropped here (ensure: absent); the
+# role is dropped by deleting this resource (reclaim policy delete), once the
+# database is gone.
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
 metadata:
-  name: authentik-db
+  name: authentik
 spec:
-  # Only creates the item; never overwrites it.
-  updatePolicy: IfNotExists
-  refreshInterval: 1h
-  secretStoreRefs:
-    - kind: ClusterSecretStore
-      name: homelab-generated
-  selector:
-    generatorRef:
-      apiVersion: generators.external-secrets.io/v1alpha1
-      kind: Password
-      name: password
-  data:
-    - match:
-        secretKey: password
-        remoteRef:
-          remoteKey: authentik-db
-          property: password
----
-apiVersion: external-secrets.io/v1
-kind: ExternalSecret
-metadata:
-  name: authentik-db
-spec:
-  refreshInterval: 1h
-  secretStoreRef:
-    kind: ClusterSecretStore
-    name: homelab-generated
-  target:
-    name: authentik-db
-    template:
-      type: kubernetes.io/basic-auth
-      metadata:
-        labels:
-          # Apply password changes to the role.
-          cnpg.io/reload: "true"
-      data:
-        username: authentik
-        password: "{{ .password }}"
-  data:
-    - secretKey: password
-      remoteRef:
-        key: authentik-db/password
+  cluster:
+    name: management
+  name: authentik
+  owner: authentik
+  ensure: absent
+  databaseReclaimPolicy: delete
 ---
 apiVersion: postgresql.cnpg.io/v1
 kind: DatabaseRole
@@ -58,15 +22,4 @@ spec:
     name: management
   name: authentik
   login: true
-  passwordSecret:
-    name: authentik-db
----
-apiVersion: postgresql.cnpg.io/v1
-kind: Database
-metadata:
-  name: authentik
-spec:
-  cluster:
-    name: management
-  name: authentik
-  owner: authentik
+  databaseRoleReclaimPolicy: delete
