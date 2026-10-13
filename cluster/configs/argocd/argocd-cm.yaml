@@ -7,8 +7,8 @@ metadata:
 data:
   # Served by the internal Gateway (httproute.yaml).
   url: https://argocd.lab.ehakan.dev
-  # Local admin login (password in the argocd-initial-admin-secret Secret)
-  # until SSO is set up.
+  # Local admin login until SSO is set up. Password: 1Password
+  # homelab-management/argocd-admin (admin-password.yaml).
   admin.enabled: "true"
   # No shell into pods from the UI.
   exec.enabled: "false"

@@ -132,19 +132,21 @@ kubectl -n cert-manager rollout restart deployment/cert-manager
 
 ### 6. Log in
 
+Once `gateways` is synced, Argo CD is at <https://argocd.lab.ehakan.dev> (LAN
+and tailnet), for the UI and the CLI. Log in as `admin`, password from the
+1Password item `argocd-admin` in `homelab-management`
+([`configs/argocd/admin-password.yaml`](configs/argocd/admin-password.yaml)):
+
 ```sh
-kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d; echo
-kubectl -n argocd port-forward service/argocd-server 8080:80
+argocd login argocd.lab.ehakan.dev --username admin \
+  --password "$(op read 'op://homelab-management/argocd-admin/password')"
 ```
 
-Open <http://localhost:8080> and log in as `admin`. After changing the password,
-delete the `argocd-initial-admin-secret` Secret.
-
-Once `gateways` is synced, Argo CD is at <https://argocd.lab.ehakan.dev> (LAN
-and tailnet), for the UI and the CLI:
+Argo CD also generates `argocd-initial-admin-secret` on first start; it's
+unused, delete it:
 
 ```sh
-argocd login argocd.lab.ehakan.dev
+kubectl -n argocd delete secret argocd-initial-admin-secret
 ```
 
 ## Secrets
@@ -185,6 +187,13 @@ end
 ```
 
 Never grant a service account access to `homelab-bootstrap`.
+
+Argo CD's `admin` password, in `homelab-management`:
+
+```sh
+op item create --vault homelab-management --category login --title argocd-admin \
+  --url https://argocd.lab.ehakan.dev --generate-password=40,letters,digits username=admin
+```
 
 Rotating a token: create a new one, update the 1Password item, delete the
 `onepassword-<vault>` Secret in `external-secrets`, and recreate it with step 3

@@ -21,3 +21,11 @@ spec:
       selfHeal: true
     syncOptions:
       - ServerSideApply=true
+    # The routes and the admin ExternalSecret need the Gateway API and
+    # External Secrets CRDs from other apps.
+    retry:
+      limit: 10
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 10m
