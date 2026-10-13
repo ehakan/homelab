@@ -10,18 +10,19 @@ After the one-time bootstrap below, changes happen only through git: never
 | [`apps/root.yaml`](apps/root.yaml) | App-of-apps: syncs `apps/`, including itself                         |
 | [`configs/`](configs)              | What the Applications deploy: kustomizations, Helm values, manifests |
 
-| Application          | Deploys                                                                                          | Namespace             |
-| -------------------- | ------------------------------------------------------------------------------------------------ | --------------------- |
-| `root`               | the Applications in `apps/`                                                                      | `argocd`              |
-| `argocd`             | Argo CD v3.5.5 managing itself (kustomize: upstream manifests + patches)                         | `argocd`              |
-| `cilium`             | Cilium 1.20.2 (CNI, kube-proxy replacement), LAN LoadBalancer IPs `192.168.11.200–230`           | `kube-system`         |
-| `gateway-api`        | Gateway API CRDs v1.6.3 (standard channel)                                                       | cluster-wide          |
-| `agentgateway-crds`  | agentgateway's own CRDs, v1.6.0                                                                  | cluster-wide          |
-| `agentgateway`       | agentgateway v1.6.0, the Gateway API implementation (GatewayClass `agentgateway`)                | `agentgateway-system` |
-| `cert-manager`       | cert-manager v1.21.2, with Gateway API support, and the Let's Encrypt ClusterIssuers             | `cert-manager`        |
-| `external-secrets`   | External Secrets Operator 2.12.0 and the 1Password ClusterSecretStores (see [Secrets](#secrets)) | `external-secrets`    |
-| `gateways`           | The `internal` and `public` Gateways and their certificates (see [Gateways](#gateways))          | `gateway`             |
-| `tailscale-operator` | Tailscale operator 1.102.4 and the subnet router for the tailnet                                 | `tailscale`           |
+| Application              | Deploys                                                                                                           | Namespace             |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------- | --------------------- |
+| `root`                   | the Applications in `apps/`                                                                                       | `argocd`              |
+| `argocd`                 | Argo CD v3.5.5 managing itself (kustomize: upstream manifests + patches)                                          | `argocd`              |
+| `cilium`                 | Cilium 1.20.2 (CNI, kube-proxy replacement), LAN LoadBalancer IPs `192.168.11.200–230`                            | `kube-system`         |
+| `gateway-api`            | Gateway API CRDs v1.6.3 (standard channel)                                                                        | cluster-wide          |
+| `agentgateway-crds`      | agentgateway's own CRDs, v1.6.0                                                                                   | cluster-wide          |
+| `agentgateway`           | agentgateway v1.6.0, the Gateway API implementation (GatewayClass `agentgateway`)                                 | `agentgateway-system` |
+| `cert-manager`           | cert-manager v1.21.2, with Gateway API support, and the Let's Encrypt ClusterIssuers                              | `cert-manager`        |
+| `external-secrets`       | External Secrets Operator 2.12.0 and the 1Password ClusterSecretStores (see [Secrets](#secrets))                  | `external-secrets`    |
+| `gateways`               | The `internal` and `public` Gateways and their certificates (see [Gateways](#gateways))                           | `gateway`             |
+| `tailscale-operator`     | Tailscale operator 1.102.4 and the subnet router for the tailnet                                                  | `tailscale`           |
+| `local-path-provisioner` | local-path-provisioner v0.0.37: default StorageClass `local-path`, volumes on the Talos `local-storage` partition | `local-path-storage`  |
 
 Traffic into the cluster goes through Gateway API (`Gateway`, `HTTPRoute`,
 ...) served by agentgateway. Don't use `Ingress` resources.

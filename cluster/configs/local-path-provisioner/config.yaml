@@ -1,0 +1,17 @@
+# Volumes go to the Talos user volume `local-storage`, which Talos mounts at
+# /var/mnt/local-storage and propagates into the kubelet.
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: local-path-config
+  namespace: local-path-storage
+data:
+  config.json: |-
+    {
+      "nodePathMap": [
+        {
+          "node": "DEFAULT_PATH_FOR_NON_LISTED_NODES",
+          "paths": ["/var/mnt/local-storage"]
+        }
+      ]
+    }

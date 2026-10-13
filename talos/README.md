@@ -7,7 +7,7 @@ Machine configs for the `homelab` cluster, generated from:
 | [`secrets.sops.yaml`](secrets.sops.yaml) | Cluster secrets bundle, sops-encrypted (see [Secrets](#secrets)) |
 | [`patches/common.yaml`](patches/common.yaml) | All nodes: no Flannel, no kube-proxy (Cilium replaces both) |
 | [`patches/controlplane.yaml`](patches/controlplane.yaml) | Control plane: cert SANs, workloads allowed |
-| [`nodes/`](nodes) | Per node: hostname, install disk, installer image |
+| [`nodes/`](nodes) | Per node: hostname, install disk, installer image, disk layout |
 | [`schematics/`](schematics) | Image Factory schematics (installer/ISO images) |
 | `generated/` | **Gitignored.** Rendered configs, `talosconfig`, `kubeconfig` |
 
@@ -18,7 +18,7 @@ are managed by Argo CD.
 
 | Node | Hardware | Role | Address | Install disk | Secure Boot | Disk encryption |
 |---|---|---|---|---|---|---|
-| `controlplane` | AZW GK35 mini-PC, 8GB | control plane (schedulable) | `192.168.11.10` (`kube.lan.ehakan.dev`) | 256GB SATA SSD, `/dev/disk/by-id/ata-SSD_256GB_2021091400158` | yes | none (no TPM) |
+| `controlplane` | AZW GK35 mini-PC, 8GB | control plane (schedulable) | `192.168.11.10` (`kube.lan.ehakan.dev`) | 256GB SATA SSD, `/dev/disk/by-id/ata-SSD_256GB_2021091400158`: EPHEMERAL 80GiB, rest `local-storage` (PersistentVolumes) | yes | none (no TPM) |
 | `media` | desktop, 16GB, GTX 1050 Ti | worker | not set up yet | | no | |
 | `ai` | desktop, 64GB, RTX 5080 | worker | not set up yet | | yes | |
 
@@ -121,6 +121,34 @@ talosctl upgrade --nodes kube.lan.ehakan.dev \
 
 Extensions only change through an upgrade, so the same applies after editing a
 schematic.
+
+### Repartitioning
+
+Volume sizes (`VolumeConfig`, `UserVolumeConfig` in `nodes/`) only apply when
+a volume is created. To resize EPHEMERAL, wipe it: `talosctl reset` drops the
+partition, and on the next boot Talos re-creates it, and any user volumes in
+the freed space, from the config. No reinstall. etcd lives on EPHEMERAL, so on
+the single control plane this wipes the cluster, which is then rebuilt from
+git.
+
+1. Push the config changes. Remove the node's Tailscale devices
+   (`homelab-k8s-operator`, `homelab-subnet-router`) in the admin console, so
+   the rebuilt ones get the same names.
+2. Apply the new config (see Changing config on a running node), then wipe
+   EPHEMERAL and reboot:
+
+   ```sh
+   talosctl reset --system-labels-to-wipe EPHEMERAL --graceful=false --reboot
+   ```
+
+3. Continue with steps 3–4 of the runbook (bootstrap, kubeconfig), then check
+   the layout:
+
+   ```sh
+   talosctl get volumestatus EPHEMERAL u-local-storage
+   ```
+
+4. Bootstrap Kubernetes again: [`cluster/README.md`](../cluster/README.md).
 
 ## Secrets
 

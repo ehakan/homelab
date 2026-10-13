@@ -1,0 +1,8 @@
+# The helper pods that create and delete volume directories use hostPath,
+# which Talos's default `baseline` pod security level forbids.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: local-path-storage
+  labels:
+    pod-security.kubernetes.io/enforce: privileged

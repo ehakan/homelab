@@ -2,6 +2,9 @@
 # Address:  192.168.11.10/23 via DHCP reservation on the router (kube.lan.ehakan.dev)
 # Image:    schematic ../schematics/controlplane.yaml (Secure Boot)
 # TPM:      none, so no disk encryption
+# Disk:     EPHEMERAL capped at 80GiB, the rest is the `local-storage` user
+#           volume for PersistentVolumes. Sizes only apply when the volumes are
+#           first created (see Repartitioning in talos/README.md).
 
 # The default config sets `auto: stable`, which can't be combined with a
 # static hostname.
@@ -20,3 +23,21 @@ provisioning:
   # with USB drives). The drive reports no `serial` attribute.
   diskSelector:
     match: '"/dev/disk/by-id/ata-SSD_256GB_2021091400158" in disk.symlinks'
+---
+# System data: container images, logs, etcd, emptyDirs.
+apiVersion: v1alpha1
+kind: VolumeConfig
+name: EPHEMERAL
+provisioning:
+  maxSize: 80GiB
+---
+# PersistentVolumes (local-path-provisioner), mounted at
+# /var/mnt/local-storage. Takes the rest of the SSD.
+apiVersion: v1alpha1
+kind: UserVolumeConfig
+name: local-storage
+provisioning:
+  diskSelector:
+    match: '"/dev/disk/by-id/ata-SSD_256GB_2021091400158" in disk.symlinks'
+  minSize: 50GiB
+  grow: true
