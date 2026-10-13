@@ -207,10 +207,9 @@ namespace: gateway, sectionName: https}]` and a hostname under
 `lab.ehakan.dev`. A public one also attaches to `public`, so at home it's
 still served by `internal`. HTTP on port 80 redirects to HTTPS on both.
 
-Certificates come from Let's Encrypt via DNS-01 on Cloudflare. They currently
-use `letsencrypt-staging` (untrusted by browsers); switch `issuerRef` in
-[`configs/gateways/certificates.yaml`](configs/gateways/certificates.yaml) to
-`letsencrypt-production` once they're issued.
+Certificates come from Let's Encrypt (`letsencrypt-production`) via DNS-01 on
+Cloudflare, see
+[`configs/gateways/certificates.yaml`](configs/gateways/certificates.yaml).
 
 Outside the cluster:
 
