@@ -1,0 +1,13 @@
+# Plain HTTP/2 (h2c) on the `https` port, used by grpcroute.yaml. Both ports go
+# to the same container port, which serves the UI and gRPC. Without an
+# appProtocol, agentgateway treats a port named `https` as TLS.
+apiVersion: v1
+kind: Service
+metadata:
+  name: argocd-server
+spec:
+  ports:
+    - name: https
+      port: 443
+      protocol: TCP # ports merge on port + protocol
+      appProtocol: kubernetes.io/h2c

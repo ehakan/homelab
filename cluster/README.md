@@ -140,6 +140,13 @@ kubectl -n argocd port-forward service/argocd-server 8080:80
 Open <http://localhost:8080> and log in as `admin`. After changing the password,
 delete the `argocd-initial-admin-secret` Secret.
 
+Once `gateways` is synced, Argo CD is at <https://argocd.lab.ehakan.dev> (LAN
+and tailnet), for the UI and the CLI:
+
+```sh
+argocd login argocd.lab.ehakan.dev
+```
+
 ## Secrets
 
 Secrets live in 1Password and reach the cluster through External Secrets.
@@ -220,6 +227,4 @@ Outside the cluster:
 
 ## Not set up yet
 
-- **Exposing Argo CD.** Port-forward only, until it gets an `HTTPRoute` on the
-  `internal` Gateway.
 - **AppProjects.** Everything uses the built-in `default` project.

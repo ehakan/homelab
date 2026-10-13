@@ -1,0 +1,19 @@
+# https://argocd.lab.ehakan.dev on the internal Gateway (LAN and tailnet only).
+# TLS ends at the Gateway; argocd-server serves plain HTTP (server.insecure in
+# argocd-cmd-params-cm.yaml). This route serves the UI over HTTP/1.1; the
+# CLI's gRPC on the same hostname goes through grpcroute.yaml.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: argocd-server
+spec:
+  parentRefs:
+    - name: internal
+      namespace: gateway
+      sectionName: https
+  hostnames:
+    - argocd.lab.ehakan.dev
+  rules:
+    - backendRefs:
+        - name: argocd-server
+          port: 80

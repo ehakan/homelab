@@ -1,0 +1,33 @@
+# The argocd CLI's gRPC on the same hostname as the UI (httproute.yaml), so
+# `argocd login argocd.lab.ehakan.dev` works without --grpc-web.
+#
+# Gateway API discourages an HTTPRoute and a GRPCRoute sharing a hostname; it
+# works on some implementations, see
+# https://argo-cd.readthedocs.io/en/stable/operator-manual/ingress/#routing-grpc-and-http-through-the-same-domain
+# agentgateway (checked against v1.6.0's source) accepts both and ranks all
+# routes for a hostname together: this route and the HTTPRoute tie on path
+# (`/`), and the content-type header match makes this one win for gRPC
+# requests. Without the header match the two would tie completely and one
+# would get all traffic. Re-check after agentgateway upgrades; if the CLI
+# breaks, use a separate hostname for this route instead.
+#
+# Backend port 443 is HTTP/2 (appProtocol h2c, argocd-server-service.yaml).
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: argocd-server
+spec:
+  parentRefs:
+    - name: internal
+      namespace: gateway
+      sectionName: https
+  hostnames:
+    - argocd.lab.ehakan.dev
+  rules:
+    - matches:
+        - headers:
+            - name: content-type
+              value: application/grpc
+      backendRefs:
+        - name: argocd-server
+          port: 443

@@ -5,7 +5,8 @@ kind: ConfigMap
 metadata:
   name: argocd-cm
 data:
-  url: https://argocd.lan.ehakan.dev
+  # Served by the internal Gateway (httproute.yaml).
+  url: https://argocd.lab.ehakan.dev
   # Local admin login (password in the argocd-initial-admin-secret Secret)
   # until SSO is set up.
   admin.enabled: "true"
