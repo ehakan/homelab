@@ -1,8 +1,13 @@
 # RBAC. Docs: https://argo-cd.readthedocs.io/en/stable/operator-manual/rbac/
+# SSO users get roles from their authentik groups (the `groups` claim). The
+# local `admin` is always admin.
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: argocd-rbac-cm
 data:
-  # Logged-in users without an explicit role get read-only access.
-  policy.default: role:readonly
+  # No access unless a rule below grants it.
+  policy.default: ""
+  scopes: "[groups]"
+  policy.csv: |
+    g, admins, role:admin

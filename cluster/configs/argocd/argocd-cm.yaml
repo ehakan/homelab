@@ -7,8 +7,18 @@ metadata:
 data:
   # Served by the internal Gateway (httproute.yaml).
   url: https://argocd.lab.ehakan.dev
-  # Local admin login until SSO is set up. Password: 1Password
-  # homelab-management/argocd-admin (admin-password.yaml).
+  # Single sign-on through authentik. The provider (public client, PKCE) and
+  # who may sign in are in authentik's `homelab - argocd` blueprint
+  # (cluster/configs/authentik/resources/blueprints.yaml); roles are in
+  # argocd-rbac-cm.yaml. Used by the UI and `argocd login --sso`.
+  oidc.config: |
+    name: authentik
+    issuer: https://auth.lab.ehakan.dev/application/o/argocd/
+    clientID: argocd
+    enablePKCEAuthentication: true
+    requestedScopes: [openid, profile, email]
+  # Local `admin`: break-glass login for when authentik is down. Password:
+  # 1Password homelab-management/argocd-admin (admin-password.yaml).
   admin.enabled: "true"
   # No shell into pods from the UI.
   exec.enabled: "false"
