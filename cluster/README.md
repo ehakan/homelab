@@ -25,6 +25,7 @@ After the one-time bootstrap below, changes happen only through git: never
 | `local-path-provisioner` | local-path-provisioner v0.0.37: default StorageClass `local-path`, volumes on the Talos `local-storage` partition | `local-path-storage`  |
 | `cloudnative-pg`         | CloudNativePG operator 1.30.1 (chart 0.29.1)                                                                      | `cnpg-system`         |
 | `db-management`          | PostgreSQL cluster `management` (one instance), one database per management app                                 | `db-management`       |
+| `authentik`              | authentik 2026.8.3, the identity provider, at <https://auth.lab.ehakan.dev>; configured by blueprints            | `authentik`           |
 
 Traffic into the cluster goes through Gateway API (`Gateway`, `HTTPRoute`,
 ...) served by agentgateway. Don't use `Ingress` resources.
@@ -213,6 +214,13 @@ Argo CD's `admin` password, in `homelab-management`:
 ```sh
 op item create --vault homelab-management --category login --title argocd-admin \
   --url https://argocd.lab.ehakan.dev --generate-password=40,letters,digits username=admin
+```
+
+authentik's break-glass `akadmin` password, in `homelab-management`:
+
+```sh
+op item create --vault homelab-management --category login --title authentik-admin \
+  --url https://auth.lab.ehakan.dev --generate-password=40,letters,digits username=akadmin
 ```
 
 Rotating a token: create a new one, update the 1Password item, delete the

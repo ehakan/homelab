@@ -1,0 +1,42 @@
+# authentik configuration as blueprints, applied by the worker on start and
+# whenever they change. One key per blueprint; keys must end in `.yaml`.
+# Format: https://docs.goauthentik.io/customize/blueprints/
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: authentik-blueprints
+data:
+  groups.yaml: |
+    version: 1
+    metadata:
+      name: homelab - groups
+    entries:
+      # Everything, everywhere.
+      - model: authentik_core.group
+        identifiers:
+          name: admins
+        attrs:
+          is_superuser: true
+      # Entertainment services.
+      - model: authentik_core.group
+        identifiers:
+          name: family
+      # AI tools.
+      - model: authentik_core.group
+        identifiers:
+          name: friends
+  users.yaml: |
+    version: 1
+    metadata:
+      name: homelab - users
+    entries:
+      # Day-to-day admin account. Set its password (or a passkey) as akadmin,
+      # the break-glass user.
+      - model: authentik_core.user
+        identifiers:
+          username: ehakan
+        attrs:
+          name: ehakan
+          type: internal
+          groups:
+            - !Find [authentik_core.group, [name, admins]]
