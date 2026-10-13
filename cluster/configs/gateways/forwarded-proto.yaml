@@ -1,0 +1,24 @@
+# agentgateway doesn't send X-Forwarded-Proto to backends (as of v1.6.0), so
+# apps behind TLS-terminating listeners think they're served over plain HTTP
+# and build http:// URLs (authentik's UI then fails on mixed content). Set it
+# on both Gateways; `set` also replaces any value a client sent itself.
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: forwarded-proto
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: internal
+      sectionName: https
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: public
+      sectionName: https
+  traffic:
+    headerModifiers:
+      request:
+        set:
+          - name: X-Forwarded-Proto
+            value: https
