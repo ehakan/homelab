@@ -1,5 +1,6 @@
 # cert-manager: issues TLS certificates, including for Gateways (Gateway API
-# support enabled in configs/cert-manager/values.yaml).
+# support enabled in configs/cert-manager/values.yaml), plus the Let's Encrypt
+# ClusterIssuers in configs/cert-manager/issuers/.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -19,6 +20,9 @@ spec:
     - repoURL: https://github.com/ehakan/homelab.git
       targetRevision: main
       ref: values
+    - repoURL: https://github.com/ehakan/homelab.git
+      targetRevision: main
+      path: cluster/configs/cert-manager/issuers
   destination:
     server: https://kubernetes.default.svc
     namespace: cert-manager
@@ -29,3 +33,10 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true
+    # The issuers wait for the webhook and for External Secrets' CRDs.
+    retry:
+      limit: 10
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 10m

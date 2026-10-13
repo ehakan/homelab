@@ -6,14 +6,12 @@ apiVersion: external-secrets.io/v1
 kind: ClusterSecretStore
 metadata:
   name: homelab-management
-  annotations:
-    # After the operator (CRDs, webhook) is up.
-    argocd.argoproj.io/sync-wave: "1"
-    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   conditions:
     - namespaces:
         - argocd
+        - cert-manager # Cloudflare token for DNS-01
+        - tailscale # operator OAuth client
   provider:
     onepasswordSDK:
       vault: homelab-management

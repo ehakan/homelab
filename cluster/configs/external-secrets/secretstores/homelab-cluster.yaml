@@ -12,10 +12,6 @@ apiVersion: external-secrets.io/v1
 kind: ClusterSecretStore
 metadata:
   name: homelab-cluster
-  annotations:
-    # After the operator (CRDs, webhook) is up.
-    argocd.argoproj.io/sync-wave: "1"
-    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   provider:
     onepasswordSDK:

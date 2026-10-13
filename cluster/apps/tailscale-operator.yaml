@@ -1,0 +1,45 @@
+# Tailscale Kubernetes operator, plus its OAuth credentials and the subnet
+# router (configs/tailscale-operator/resources/). The tailnet side (policy,
+# split DNS, the OAuth client) is terraform/tailscale.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tailscale-operator
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - repoURL: https://pkgs.tailscale.com/helmcharts
+      chart: tailscale-operator
+      targetRevision: 1.102.4
+      helm:
+        releaseName: tailscale-operator
+        valueFiles:
+          - $values/cluster/configs/tailscale-operator/values.yaml
+    - repoURL: https://github.com/ehakan/homelab.git
+      targetRevision: main
+      ref: values
+    - repoURL: https://github.com/ehakan/homelab.git
+      targetRevision: main
+      path: cluster/configs/tailscale-operator/resources
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: tailscale
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    # Proxy pods need a privileged init container (IP forwarding sysctls);
+    # Talos enforces `baseline` by default.
+    managedNamespaceMetadata:
+      labels:
+        pod-security.kubernetes.io/enforce: privileged
+    retry:
+      limit: 10
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 10m

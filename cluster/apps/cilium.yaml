@@ -18,6 +18,10 @@ spec:
     - repoURL: https://github.com/ehakan/homelab.git
       targetRevision: main
       ref: values
+    # LB IP pool and L2 announcements.
+    - repoURL: https://github.com/ehakan/homelab.git
+      targetRevision: main
+      path: cluster/configs/cilium/resources
   destination:
     server: https://kubernetes.default.svc
     namespace: kube-system

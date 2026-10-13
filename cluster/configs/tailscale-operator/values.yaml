@@ -1,0 +1,8 @@
+# Helm values for the tailscale-operator chart (cluster/apps/tailscale-operator.yaml).
+# Defaults: helm show values tailscale-operator --repo https://pkgs.tailscale.com/helmcharts --version <version>
+#
+# OAuth credentials: no oauth.* values, so the operator reads the Secret
+# `operator-oauth`, synced by External Secrets (resources/operator-oauth.yaml).
+
+operatorConfig:
+  hostname: homelab-k8s-operator

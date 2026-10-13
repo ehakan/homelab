@@ -1,0 +1,19 @@
+# The operator's OAuth client, created by terraform/tailscale.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: operator-oauth
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: homelab-management
+  target:
+    name: operator-oauth
+  data:
+    - secretKey: client_id
+      remoteRef:
+        key: tailscale-operator/username
+    - secretKey: client_secret
+      remoteRef:
+        key: tailscale-operator/password

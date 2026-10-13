@@ -1,0 +1,51 @@
+# Public services: the router port-forwards 443 (and 80) from the internet to
+# 192.168.11.201. Only namespaces labelled
+# `gateway.lab.ehakan.dev/public: "true"` can attach routes, so nothing
+# becomes public by accident. Routes for public services attach to both
+# Gateways, so at home they're served by `internal`.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: public
+spec:
+  gatewayClassName: agentgateway
+  addresses:
+    - type: IPAddress
+      value: 192.168.11.201 # configs/cilium/resources/lb-ipam.yaml
+  listeners:
+    - name: https
+      protocol: HTTPS
+      port: 443
+      hostname: "*.lab.ehakan.dev"
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: public-tls
+      allowedRoutes:
+        namespaces:
+          from: Selector
+          selector:
+            matchLabels:
+              gateway.lab.ehakan.dev/public: "true"
+    - name: http
+      protocol: HTTP
+      port: 80
+      hostname: "*.lab.ehakan.dev"
+      allowedRoutes:
+        namespaces:
+          from: Same
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: public-https-redirect
+spec:
+  parentRefs:
+    - name: public
+      sectionName: http
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            statusCode: 301

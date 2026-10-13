@@ -1,0 +1,28 @@
+# LoadBalancer IPs for Services (in practice: Gateways), announced on the LAN.
+#
+# LAN 192.168.10.0/23 reservations, don't overlap them:
+#   192.168.10.0-254    personal (router: 192.168.10.1)
+#   192.168.11.10-20    cluster nodes
+#   192.168.11.30-50    non-homelab
+#
+# Fixed assignments (Gateway spec.addresses):
+#   192.168.11.200      Gateway gateway/internal
+#   192.168.11.201      Gateway gateway/public
+apiVersion: cilium.io/v2
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: lan
+spec:
+  blocks:
+    - start: 192.168.11.200
+      stop: 192.168.11.230
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumL2AnnouncementPolicy
+metadata:
+  name: lan
+spec:
+  loadBalancerIPs: true
+  # Wired NICs (Talos predictable names: enp1s0, eno1, ...).
+  interfaces:
+    - ^en.+

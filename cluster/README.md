@@ -10,16 +10,18 @@ After the one-time bootstrap below, changes happen only through git: never
 | [`apps/root.yaml`](apps/root.yaml) | App-of-apps: syncs `apps/`, including itself                         |
 | [`configs/`](configs)              | What the Applications deploy: kustomizations, Helm values, manifests |
 
-| Application         | Deploys                                                                                          | Namespace             |
-| ------------------- | ------------------------------------------------------------------------------------------------ | --------------------- |
-| `root`              | the Applications in `apps/`                                                                      | `argocd`              |
-| `argocd`            | Argo CD v3.5.5 managing itself (kustomize: upstream manifests + patches)                         | `argocd`              |
-| `cilium`            | Cilium 1.20.2 (CNI, kube-proxy replacement)                                                      | `kube-system`         |
-| `gateway-api`       | Gateway API CRDs v1.6.3 (standard channel)                                                       | cluster-wide          |
-| `agentgateway-crds` | agentgateway's own CRDs, v1.6.0                                                                  | cluster-wide          |
-| `agentgateway`      | agentgateway v1.6.0, the Gateway API implementation (GatewayClass `agentgateway`)                | `agentgateway-system` |
-| `cert-manager`      | cert-manager v1.21.2, with Gateway API support                                                   | `cert-manager`        |
-| `external-secrets`  | External Secrets Operator 2.12.0 and the 1Password ClusterSecretStores (see [Secrets](#secrets)) | `external-secrets`    |
+| Application          | Deploys                                                                                          | Namespace             |
+| -------------------- | ------------------------------------------------------------------------------------------------ | --------------------- |
+| `root`               | the Applications in `apps/`                                                                      | `argocd`              |
+| `argocd`             | Argo CD v3.5.5 managing itself (kustomize: upstream manifests + patches)                         | `argocd`              |
+| `cilium`             | Cilium 1.20.2 (CNI, kube-proxy replacement), LAN LoadBalancer IPs `192.168.11.200–230`           | `kube-system`         |
+| `gateway-api`        | Gateway API CRDs v1.6.3 (standard channel)                                                       | cluster-wide          |
+| `agentgateway-crds`  | agentgateway's own CRDs, v1.6.0                                                                  | cluster-wide          |
+| `agentgateway`       | agentgateway v1.6.0, the Gateway API implementation (GatewayClass `agentgateway`)                | `agentgateway-system` |
+| `cert-manager`       | cert-manager v1.21.2, with Gateway API support, and the Let's Encrypt ClusterIssuers             | `cert-manager`        |
+| `external-secrets`   | External Secrets Operator 2.12.0 and the 1Password ClusterSecretStores (see [Secrets](#secrets)) | `external-secrets`    |
+| `gateways`           | The `internal` and `public` Gateways and their certificates (see [Gateways](#gateways))          | `gateway`             |
+| `tailscale-operator` | Tailscale operator 1.102.4 and the subnet router for the tailnet                                 | `tailscale`           |
 
 Traffic into the cluster goes through Gateway API (`Gateway`, `HTTPRoute`,
 ...) served by agentgateway. Don't use `Ingress` resources.
@@ -103,10 +105,12 @@ This is the last manual change to the cluster.
 - `argocd` and `cilium` adopt what steps 1–2 installed. `argocd` applies the
   patches from [`configs/argocd/`](configs/argocd), which restarts the Argo CD
   pods.
-- `gateway-api`, `agentgateway-crds`, `agentgateway`, `cert-manager` and
-  `external-secrets` are installed fresh. `agentgateway` and `external-secrets` may fail their
-  first sync attempts until their CRDs and webhooks are up, then succeed on
-  retry.
+- Everything else is installed fresh. Apps that depend on another app's CRDs
+  or webhooks (`cilium`'s IP pool, `cert-manager`'s issuers, `gateways`,
+  `tailscale-operator`, `agentgateway`, `external-secrets`) may fail their first
+  sync attempts, then succeed on retry.
+- The 1Password items the issuers and the Tailscale operator read are created
+  by [`terraform/`](../terraform): apply it first.
 
 Wait until everything is `Synced` and `Healthy`:
 
@@ -114,6 +118,8 @@ Wait until everything is `Synced` and `Healthy`:
 kubectl -n argocd get applications --watch
 kubectl get gatewayclass agentgateway   # created by the agentgateway controller
 kubectl get clustersecretstores   # both Valid, Ready
+kubectl -n gateway get gateways,certificates   # Programmed, Ready
+kubectl get connector subnet-router   # Ready
 ```
 
 cert-manager only enables its Gateway API support if the Gateway API CRDs
@@ -186,11 +192,35 @@ of the runbook.
 Then push. Check compatibility first: Gateway API must stay on a version
 agentgateway supports.
 
+## Gateways
+
+All homelab hostnames are `*.lab.ehakan.dev`. Two Gateways in the `gateway`
+namespace, each with its own LAN IP and certificate:
+
+| Gateway    | IP               | Reachable from                                                      | Routes from                                                      |
+| ---------- | ---------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `internal` | `192.168.11.200` | LAN (router DNS), tailnet (subnet router, split DNS to the router)  | any namespace                                                    |
+| `public`   | `192.168.11.201` | internet (router port-forward)                                      | namespaces labelled `gateway.lab.ehakan.dev/public: "true"` only |
+
+A private service is an `HTTPRoute` with `parentRefs: [{name: internal,
+namespace: gateway, sectionName: https}]` and a hostname under
+`lab.ehakan.dev`. A public one also attaches to `public`, so at home it's
+still served by `internal`. HTTP on port 80 redirects to HTTPS on both.
+
+Certificates come from Let's Encrypt via DNS-01 on Cloudflare. They currently
+use `letsencrypt-staging` (untrusted by browsers); switch `issuerRef` in
+[`configs/gateways/certificates.yaml`](configs/gateways/certificates.yaml) to
+`letsencrypt-production` once they're issued.
+
+Outside the cluster:
+
+- Router DNS: `*.lab.ehakan.dev` → `192.168.11.200` (manual, router config).
+- Router port-forward: 443 and 80 → `192.168.11.201` (manual, once there's a
+  public service).
+- Public DNS and the Tailscale side: [`terraform/`](../terraform).
+
 ## Not set up yet
 
-- **A Gateway.** No `Gateway` exists yet, so nothing is reachable from outside
-  the cluster. It needs a LoadBalancer IP (Cilium LB IPAM + L2 announcements,
-  with an address range from the LAN) and TLS certificates.
 - **Exposing Argo CD.** Port-forward only, until it gets an `HTTPRoute` on the
-  Gateway.
+  `internal` Gateway.
 - **AppProjects.** Everything uses the built-in `default` project.

@@ -1,0 +1,15 @@
+# Makes the internal Gateway and the router's DNS reachable from the tailnet.
+# Routes are auto-approved for tag:k8s-subnet-router and access is granted in
+# terraform/tailscale; keep the three in sync.
+apiVersion: tailscale.com/v1alpha1
+kind: Connector
+metadata:
+  name: subnet-router
+spec:
+  hostname: homelab-subnet-router
+  tags:
+    - tag:k8s-subnet-router
+  subnetRouter:
+    advertiseRoutes:
+      - 192.168.11.200/32 # Gateway gateway/internal
+      - 192.168.10.1/32 # router (DNS for lab.ehakan.dev)

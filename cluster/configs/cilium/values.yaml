@@ -46,3 +46,14 @@ operator:
 
 # Restart agents when their config changes.
 rollOutCiliumPods: true
+
+# LoadBalancer IPs on the LAN: Cilium answers ARP for them
+# (configs/cilium/resources/).
+l2announcements:
+  enabled: true
+
+# Service load-balancing for pods happens per packet rather than in connect().
+# Needed by proxies that forward traffic inside pods, like the Tailscale
+# operator's subnet router.
+socketLB:
+  hostNamespaceOnly: true

@@ -1,0 +1,28 @@
+# Separate keys per Gateway, so the internet-facing one can be revoked on its
+# own. Wildcards keep hostnames out of Certificate Transparency logs. The name
+# sets differ (apex only on internal) so they count against separate Let's
+# Encrypt duplicate-certificate limits.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: internal
+spec:
+  secretName: internal-tls
+  dnsNames:
+    - lab.ehakan.dev
+    - "*.lab.ehakan.dev"
+  issuerRef:
+    kind: ClusterIssuer
+    name: letsencrypt-staging
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: public
+spec:
+  secretName: public-tls
+  dnsNames:
+    - "*.lab.ehakan.dev"
+  issuerRef:
+    kind: ClusterIssuer
+    name: letsencrypt-staging

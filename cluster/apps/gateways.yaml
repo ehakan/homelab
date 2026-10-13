@@ -1,0 +1,29 @@
+# The cluster's two Gateways (agentgateway) and their certificates. See
+# cluster/README.md#gateways.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gateways
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/ehakan/homelab.git
+    targetRevision: main
+    path: cluster/configs/gateways
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: gateway
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+    # Needs the Gateway API, agentgateway and cert-manager CRDs.
+    retry:
+      limit: 10
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 10m
