@@ -104,8 +104,14 @@ This is the last manual change to the cluster.
 `root` creates the other Applications:
 
 - `argocd` and `cilium` adopt what steps 1–2 installed. `argocd` applies the
-  patches from [`configs/argocd/`](configs/argocd), which restarts the Argo CD
-  pods.
+  patches from [`configs/argocd/`](configs/argocd). Argo CD doesn't reload
+  `argocd-cmd-params-cm` by itself; once `argocd` has synced, restart it
+  (otherwise apps with Gateway API resources stay `OutOfSync`):
+
+  ```sh
+  kubectl -n argocd rollout restart statefulset/argocd-application-controller deployment/argocd-server
+  ```
+
 - Everything else is installed fresh. Apps that depend on another app's CRDs
   or webhooks (`cilium`'s IP pool, `cert-manager`'s issuers, `gateways`,
   `tailscale-operator`, `agentgateway`, `external-secrets`) may fail their first
