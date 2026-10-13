@@ -25,7 +25,6 @@ After the one-time bootstrap below, changes happen only through git: never
 | `local-path-provisioner` | local-path-provisioner v0.0.37: default StorageClass `local-path`, volumes on the Talos `local-storage` partition | `local-path-storage`  |
 | `cloudnative-pg`         | CloudNativePG operator 1.30.1 (chart 0.29.1)                                                                      | `cnpg-system`         |
 | `db-management`          | PostgreSQL cluster `management` (one instance), one database per management app                                 | `db-management`       |
-| `authentik`              | authentik 2026.8.3, the identity provider, at <https://auth.lab.ehakan.dev>; configured by blueprints            | `authentik`           |
 
 Traffic into the cluster goes through Gateway API (`Gateway`, `HTTPRoute`,
 ...) served by agentgateway. Don't use `Ingress` resources.
@@ -143,11 +142,7 @@ kubectl -n cert-manager rollout restart deployment/cert-manager
 ### 6. Log in
 
 Once `gateways` is synced, Argo CD is at <https://argocd.lab.ehakan.dev> (LAN
-and tailnet), for the UI and the CLI. Normally sign in through authentik ("Log
-in via authentik", or `argocd login argocd.lab.ehakan.dev --sso`); members of
-the authentik group `admins` are Argo CD admins, nobody else gets in.
-
-Until authentik is up, or when it's down, log in as `admin`, password from the
+and tailnet), for the UI and the CLI. Log in as `admin`, password from the
 1Password item `argocd-admin` in `homelab-management`
 ([`configs/argocd/admin-password.yaml`](configs/argocd/admin-password.yaml)):
 
@@ -182,8 +177,7 @@ one of the ClusterSecretStores (example in
 - Secrets nobody types in (database passwords, signing keys, OIDC client
   secrets) are generated: a `PushSecret` with `updatePolicy: IfNotExists`
   creates the item in `homelab-generated` once, and `ExternalSecret`s read it
-  like any other. Example:
-  [`configs/db-management/authentik.yaml`](configs/db-management/authentik.yaml).
+  like any other.
   To rotate one, delete its 1Password item.
 - Use `refreshInterval: 1h` unless a secret needs to change faster: service
   account reads are rate-limited per hour.
@@ -218,13 +212,6 @@ Argo CD's `admin` password, in `homelab-management`:
 ```sh
 op item create --vault homelab-management --category login --title argocd-admin \
   --url https://argocd.lab.ehakan.dev --generate-password=40,letters,digits username=admin
-```
-
-authentik's break-glass `akadmin` password, in `homelab-management`:
-
-```sh
-op item create --vault homelab-management --category login --title authentik-admin \
-  --url https://auth.lab.ehakan.dev --generate-password=40,letters,digits username=akadmin
 ```
 
 Rotating a token: create a new one, update the 1Password item, delete the

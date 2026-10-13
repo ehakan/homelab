@@ -1,5 +1,4 @@
-# PostgreSQL cluster `management`: one database per management app (authentik,
-# ...). See cluster/configs/db-management/.
+# PostgreSQL cluster `management`: one database per management app. See cluster/configs/db-management/.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:

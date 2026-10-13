@@ -12,7 +12,6 @@ spec:
         - argocd
         - cert-manager # Cloudflare token for DNS-01
         - tailscale # operator OAuth client
-        - authentik # break-glass akadmin password
   provider:
     onepasswordSDK:
       vault: homelab-management

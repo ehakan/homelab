@@ -2,7 +2,8 @@
 # the 1Password vault `homelab-generated`, read and write. The cluster seeds
 # each item once with a PushSecret (updatePolicy: IfNotExists) and reads it back
 # with ExternalSecrets like any other store, so values survive rebuilds.
-# Example: cluster/configs/db-management/authentik.yaml.
+# Example: a PushSecret with a Password generator, updatePolicy IfNotExists,
+# plus an ExternalSecret reading the same item.
 #
 # Writable, so only the namespaces listed below can use it.
 apiVersion: external-secrets.io/v1
@@ -13,7 +14,6 @@ spec:
   conditions:
     - namespaces:
         - db-management
-        - authentik
   provider:
     onepasswordSDK:
       vault: homelab-generated

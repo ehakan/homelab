@@ -1,6 +1,7 @@
 # A single PostgreSQL instance on the node's local-storage partition: no
-# replicas, no failover. Each app gets its own role and database, see
-# authentik.yaml. Passwords come from the homelab-generated store.
+# replicas, no failover. Each app gets a DatabaseRole and a Database here; the
+# role's password is generated into homelab-generated with a PushSecret (using
+# password.yaml) and read back with an ExternalSecret.
 #
 # Connect from an app as <role>@management-rw.db-management.svc:5432.
 apiVersion: postgresql.cnpg.io/v1
