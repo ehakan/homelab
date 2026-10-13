@@ -8,3 +8,9 @@ data:
   # Serve plain HTTP; TLS terminates at the Gateway once Argo CD gets an
   # HTTPRoute. Until then: kubectl port-forward.
   server.insecure: "true"
+
+  # Diff through a server-side dry-run apply, so fields the API server
+  # defaults (e.g. Gateway API parentRefs group/kind, HTTPRoute matches) don't
+  # show as permanent OutOfSync. Takes effect after restarting the
+  # application controller.
+  controller.diff.server.side: "true"
