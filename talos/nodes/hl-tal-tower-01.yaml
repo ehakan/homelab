@@ -1,0 +1,63 @@
+# Node:     desktop (MSI MS-7C31, i5-9400F, 16GB, GTX 1050 Ti), worker for
+#           media / transcoding
+# Address:  192.168.11.11/23 via DHCP reservation on the router
+# Image:    schematic ../schematics/media.yaml (no Secure Boot)
+# TPM:      none, so no disk encryption
+# Disk:     EPHEMERAL capped at 80GiB, the rest is the `local-storage` user
+#           volume for PersistentVolumes. Sizes only apply when the volumes are
+#           first created (see Repartitioning in talos/README.md). The media
+#           library itself is meant to move to a NAS or separate HDDs later.
+
+# The default config sets `auto: stable`, which can't be combined with a
+# static hostname.
+apiVersion: v1alpha1
+kind: HostnameConfig
+auto:
+  $patch: delete
+hostname: hl-tal-tower-01
+---
+apiVersion: v1alpha1
+kind: UnattendedInstallConfig
+installer:
+  image: factory.talos.dev/metal-installer/f31a9830aa99bde462c9e9e2f24480528d7a29d346013c306200b73a4ad5e331:v1.14.2
+provisioning:
+  # 480GB Crucial BX500 SATA SSD, matched by its stable by-id link (/dev/sdX
+  # names shift with USB drives). Wiped on install (the default).
+  diskSelector:
+    match: '"/dev/disk/by-id/ata-CT480BX500SSD1_2229E649CC02" in disk.symlinks'
+---
+# System data: container images, logs, emptyDirs.
+apiVersion: v1alpha1
+kind: VolumeConfig
+name: EPHEMERAL
+provisioning:
+  maxSize: 80GiB
+---
+# PersistentVolumes (local-path-provisioner), mounted at
+# /var/mnt/local-storage. Takes the rest of the SSD.
+apiVersion: v1alpha1
+kind: UserVolumeConfig
+name: local-storage
+provisioning:
+  diskSelector:
+    match: '"/dev/disk/by-id/ata-CT480BX500SSD1_2229E649CC02" in disk.symlinks'
+  minSize: 50GiB
+  grow: true
+---
+# NVIDIA proprietary driver (nonfree-kmod-nvidia-lts extension in the
+# schematic): the modules must be loaded explicitly.
+apiVersion: v1alpha1
+kind: KernelModuleConfig
+name: nvidia
+---
+apiVersion: v1alpha1
+kind: KernelModuleConfig
+name: nvidia_uvm
+---
+apiVersion: v1alpha1
+kind: KernelModuleConfig
+name: nvidia_drm
+---
+apiVersion: v1alpha1
+kind: KernelModuleConfig
+name: nvidia_modeset

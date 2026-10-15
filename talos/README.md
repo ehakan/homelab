@@ -19,7 +19,7 @@ are managed by Argo CD.
 | Node | Hardware | Role | Address | Install disk | Secure Boot | Disk encryption |
 |---|---|---|---|---|---|---|
 | `hl-tal-mini-01` | AZW GK35 mini-PC, 8GB | control plane (schedulable) | `192.168.11.10` (`kube.lan.ehakan.dev`) | 256GB SATA SSD, `/dev/disk/by-id/ata-SSD_256GB_2021091400158`: EPHEMERAL 80GiB, rest `local-storage` (PersistentVolumes) | yes | none (no TPM) |
-| `hl-tal-tower-01` | desktop, 16GB, GTX 1050 Ti | worker | not set up yet | | no | |
+| `hl-tal-tower-01` | desktop (MSI MS-7C31, i5-9400F), 16GB, GTX 1050 Ti | worker (media, NVIDIA 580 driver) | `192.168.11.11` | 480GB SATA SSD, `/dev/disk/by-id/ata-CT480BX500SSD1_2229E649CC02`: EPHEMERAL 80GiB, rest `local-storage` | no | none (no TPM) |
 | `hl-tal-tower-02` | desktop, 64GB, RTX 5080 | worker | not set up yet | | yes | |
 
 Node addresses are DHCP reservations on the router, not static config in Talos.
@@ -65,7 +65,8 @@ hostname, installer image and install disk revert to defaults.
 
 ### 2. Install a node (from maintenance mode)
 
-Boot the node from its schematic's ISO (see [`schematics/`](schematics)), then:
+Boot the node from its schematic's ISO (see [`schematics/`](schematics)), then
+apply the role's config plus the node's patch. Control plane:
 
 ```sh
 talosctl apply-config --insecure --nodes 192.168.11.10 \
@@ -73,7 +74,16 @@ talosctl apply-config --insecure --nodes 192.168.11.10 \
   --config-patch @talos/nodes/controlplane.yaml
 ```
 
-Talos installs to the selected disk and reboots. Remove the USB stick once it
+Worker, e.g. `hl-tal-tower-01`:
+
+```sh
+talosctl apply-config --insecure --nodes 192.168.11.11 \
+  --file talos/generated/worker.yaml \
+  --config-patch @talos/nodes/hl-tal-tower-01.yaml
+```
+
+Talos wipes the selected disk, installs and reboots; this takes several
+minutes. Remove the USB stick once it
 starts rebooting, or it boots back into maintenance mode.
 
 ### 3. Bootstrap the cluster (once, first control plane only)
@@ -106,7 +116,8 @@ talosctl apply-config --nodes kube.lan.ehakan.dev \
   --dry-run
 ```
 
-Re-run without `--dry-run` to apply. Don't use `talosctl patch machineconfig`
+For a worker, use its address, `talos/generated/worker.yaml` and its node
+patch instead. Re-run without `--dry-run` to apply. Don't use `talosctl patch machineconfig`
 or `talosctl edit`: those change only the node and drift from the repo.
 
 ### Upgrading Talos

@@ -17,3 +17,9 @@ kind: KubeNodeConfig
 taints:
   node-role.kubernetes.io/control-plane:
     $patch: delete
+---
+# No kube-proxy: Cilium replaces it (see common.yaml). Control plane only;
+# workers reject this document.
+apiVersion: v1alpha1
+kind: KubeProxyConfig
+enabled: false
