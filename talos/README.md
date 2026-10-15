@@ -18,9 +18,9 @@ are managed by Argo CD.
 
 | Node | Hardware | Role | Address | Install disk | Secure Boot | Disk encryption |
 |---|---|---|---|---|---|---|
-| `controlplane` | AZW GK35 mini-PC, 8GB | control plane (schedulable) | `192.168.11.10` (`kube.lan.ehakan.dev`) | 256GB SATA SSD, `/dev/disk/by-id/ata-SSD_256GB_2021091400158`: EPHEMERAL 80GiB, rest `local-storage` (PersistentVolumes) | yes | none (no TPM) |
-| `media` | desktop, 16GB, GTX 1050 Ti | worker | not set up yet | | no | |
-| `ai` | desktop, 64GB, RTX 5080 | worker | not set up yet | | yes | |
+| `hl-tal-mini-01` | AZW GK35 mini-PC, 8GB | control plane (schedulable) | `192.168.11.10` (`kube.lan.ehakan.dev`) | 256GB SATA SSD, `/dev/disk/by-id/ata-SSD_256GB_2021091400158`: EPHEMERAL 80GiB, rest `local-storage` (PersistentVolumes) | yes | none (no TPM) |
+| `hl-tal-tower-01` | desktop, 16GB, GTX 1050 Ti | worker | not set up yet | | no | |
+| `hl-tal-tower-02` | desktop, 64GB, RTX 5080 | worker | not set up yet | | yes | |
 
 Node addresses are DHCP reservations on the router, not static config in Talos.
 

@@ -12,7 +12,7 @@ apiVersion: v1alpha1
 kind: HostnameConfig
 auto:
   $patch: delete
-hostname: controlplane
+hostname: hl-tal-mini-01
 ---
 apiVersion: v1alpha1
 kind: UnattendedInstallConfig
