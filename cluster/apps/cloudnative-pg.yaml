@@ -1,6 +1,5 @@
 # CloudNativePG operator: runs the PostgreSQL clusters (`Cluster`, `Database`,
-# `DatabaseRole`, ...). The clusters themselves are separate apps, e.g.
-# db-management.yaml.
+# `DatabaseRole`, ...). The clusters themselves are separate apps.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:

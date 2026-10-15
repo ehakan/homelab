@@ -24,7 +24,6 @@ After the one-time bootstrap below, changes happen only through git: never
 | `tailscale-operator`     | Tailscale operator 1.102.4 and the subnet router for the tailnet                                                  | `tailscale`           |
 | `local-path-provisioner` | local-path-provisioner v0.0.37: default StorageClass `local-path`, volumes on the Talos `local-storage` partition | `local-path-storage`  |
 | `cloudnative-pg`         | CloudNativePG operator 1.30.1 (chart 0.29.1)                                                                      | `cnpg-system`         |
-| `db-management`          | PostgreSQL cluster `management` (one instance), one database per management app                                 | `db-management`       |
 
 Traffic into the cluster goes through Gateway API (`Gateway`, `HTTPRoute`,
 ...) served by agentgateway. Don't use `Ingress` resources.
