@@ -4,6 +4,9 @@ kind: Application
 metadata:
   name: db-management
   namespace: argocd
+  # Being removed: deleting this Application also deletes what it deployed.
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
   source:
