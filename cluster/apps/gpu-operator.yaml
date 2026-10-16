@@ -1,0 +1,38 @@
+# NVIDIA GPU Operator: device plugin, GPU feature discovery and the `nvidia`
+# RuntimeClass, so pods can request `nvidia.com/gpu`. Talos already provides
+# the driver and the container toolkit as system extensions
+# (talos/schematics/media.yaml), so the operator installs neither.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gpu-operator
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - repoURL: https://helm.ngc.nvidia.com/nvidia
+      chart: gpu-operator
+      targetRevision: v26.7.2
+      helm:
+        releaseName: gpu-operator
+        valueFiles:
+          - $values/cluster/configs/gpu-operator/values.yaml
+    - repoURL: https://github.com/ehakan/homelab.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: gpu-operator
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # The CRDs are too large for client-side apply's annotation.
+      - ServerSideApply=true
+    # The operator's DaemonSets need host access (device nodes, host paths);
+    # Talos enforces `baseline` by default.
+    managedNamespaceMetadata:
+      labels:
+        pod-security.kubernetes.io/enforce: privileged

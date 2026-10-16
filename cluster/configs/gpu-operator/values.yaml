@@ -1,0 +1,24 @@
+# Helm values for the gpu-operator chart (cluster/apps/gpu-operator.yaml).
+# Defaults: helm show values gpu-operator --repo https://helm.ngc.nvidia.com/nvidia --version <version>
+# Talos guide: https://docs.siderolabs.com/talos/v1.14/configure-your-talos-cluster/hardware-and-drivers/nvidia-gpu-proprietary
+
+# Talos ships the driver (nonfree-kmod-nvidia-lts) and the container toolkit
+# (nvidia-container-toolkit-lts); the toolkit's files live under /usr/local.
+driver:
+  enabled: false
+toolkit:
+  enabled: false
+hostPaths:
+  driverInstallDir: /usr/local
+
+operator:
+  # A pre-upgrade hook Job that re-applies the CRDs; Argo CD already applies
+  # them from the chart's crds/ on every sync.
+  upgradeCRD: false
+
+# Not needed (yet): GPU metrics without a metrics stack, and MIG, which the
+# GTX 1050 Ti (Pascal) doesn't support.
+dcgmExporter:
+  enabled: false
+migManager:
+  enabled: false
