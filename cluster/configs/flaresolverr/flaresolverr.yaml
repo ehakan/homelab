@@ -1,0 +1,85 @@
+# FlareSolverr: solves Cloudflare challenges for Prowlarr's indexers with a
+# headless Chromium (Prowlarr: Indexer Proxy "FlareSolverr", applied to
+# indexers by tag). It has no authentication and fetches any URL it's given,
+# so it's only reachable inside the cluster: a Service, no HTTPRoute.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flaresolverr
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: flaresolverr
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: flaresolverr
+    spec:
+      # The image's own user is flaresolverr (1000).
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      nodeSelector:
+        kubernetes.io/hostname: hl-tal-tower-01
+      containers:
+        - name: flaresolverr
+          image: ghcr.io/flaresolverr/flaresolverr:v3.5.2
+          env:
+            - name: LOG_LEVEL
+              value: info
+          ports:
+            - name: http
+              containerPort: 8191
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              memory: 2Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            # Chromium's profile and cache churn constantly (upstream issue
+            # #1791, "Excessive disk writing"): keep them in memory instead of
+            # on the SSD. Counts towards the memory limit.
+            - name: tmp
+              mountPath: /tmp
+            # Kubernetes' default 64Mi /dev/shm is too small for Chromium.
+            - name: shm
+              mountPath: /dev/shm
+      volumes:
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 512Mi
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: flaresolverr
+spec:
+  selector:
+    app.kubernetes.io/name: flaresolverr
+  ports:
+    - name: http
+      port: 8191
+      targetPort: http

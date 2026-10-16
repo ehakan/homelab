@@ -33,6 +33,7 @@ After the one-time bootstrap below, changes happen only through git: never
 | `seerr`                   | Seerr v3.5.0: media requests                                                                                      | `media`                |
 | `jellyfin`                | Jellyfin 12.2: media server, NVENC transcoding on hl-tal-tower-01's GTX 1050 Ti                                   | `media`                |
 | `cleanuparr`              | Cleanuparr 2.10.11: removes malware (e.g. `.exe`), stalled and failed downloads                                    | `media`                |
+| `flaresolverr`            | FlareSolverr v3.5.2: solves Cloudflare challenges for Prowlarr indexers (in-cluster only, no route)               | `media`                |
 
 Traffic into the cluster goes through Gateway API (`Gateway`, `HTTPRoute`,
 ...) served by agentgateway. Don't use `Ingress` resources.
@@ -296,8 +297,9 @@ user `admin`, password in 1Password `homelab-management` → `<app>-admin`
 3. Radarr and Sonarr: root folders `/data/media/movies` and `/data/media/tv`;
    download client qBittorrent (`qbittorrent:80`, category `movies` / `tv`).
 4. Prowlarr: Radarr (`http://radarr`) and Sonarr (`http://sonarr`) as apps,
-   full sync, rejecting blocklisted torrent hashes. **Indexers: add your own**;
-   they sync to both.
+   full sync, rejecting blocklisted torrent hashes. Indexer Proxy FlareSolverr
+   (`http://flaresolverr:8191/`) with tag `flaresolverr`: give that tag to
+   indexers behind Cloudflare. **Indexers: add your own**; they sync to both.
 5. Jellyfin: startup wizard (English, US metadata), libraries Movies
    (`/data/media/movies`) and Shows (`/data/media/tv`), transcoding NVENC with
    hardware decoding of H.264, HEVC, MPEG-2, VC-1 and VP9 (10-bit HEVC/VP9),
