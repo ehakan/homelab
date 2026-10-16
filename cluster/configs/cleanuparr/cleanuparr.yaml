@@ -1,0 +1,130 @@
+# Cleanuparr: removes unwanted downloads through the qBittorrent and *arr APIs.
+# Malware Blocker: blocklisted files (*.exe, *.lnk, ...) are skipped, torrents
+# made only of them are removed and the release is blocklisted in Radarr or
+# Sonarr. Queue Cleaner: stalled and failed-import downloads are removed after
+# a number of strikes. All settings live in its database (media-postgres) and
+# are set once in its UI (cluster/README.md). No /data mount: only its
+# hardlink-based Download Cleaner would need one.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cleanuparr
+spec:
+  replicas: 1
+  # Single-node volumes: the old pod must stop before the new one starts.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cleanuparr
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cleanuparr
+    spec:
+      # Same user as the other media apps. Started as non-root, the image's
+      # entrypoint skips its PUID/PGID handling and only needs /config writable.
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      nodeSelector:
+        kubernetes.io/hostname: hl-tal-tower-01
+      containers:
+        - name: cleanuparr
+          image: ghcr.io/cleanuparr/cleanuparr:2.10.11
+          env:
+            - name: PORT
+              value: "11011"
+            - name: DATABASE_PROVIDER
+              value: postgres
+            - name: POSTGRES_HOST
+              value: media-postgres-rw
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: POSTGRES_DB
+              value: cleanuparr
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: cleanuparr-db
+                  key: username
+            - name: POSTGRES_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: cleanuparr-db
+                  key: password
+          ports:
+            - name: http
+              containerPort: 11011
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: config
+              mountPath: /config
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: cleanuparr-config
+---
+# DataProtection and JWT keys, cleanuparr.json and logs; the database is in
+# media-postgres.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cleanuparr-config
+spec:
+  storageClassName: local-path
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cleanuparr
+spec:
+  selector:
+    app.kubernetes.io/name: cleanuparr
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: cleanuparr
+spec:
+  parentRefs:
+    - name: internal
+      namespace: gateway
+      sectionName: https
+  hostnames:
+    - cleanuparr.lab.ehakan.dev
+  rules:
+    - backendRefs:
+        - name: cleanuparr
+          port: 80

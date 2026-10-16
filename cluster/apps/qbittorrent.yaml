@@ -1,0 +1,28 @@
+# qBittorrent (namespace `media`, hl-tal-tower-01). Shared pieces: media-base.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: qbittorrent
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/ehakan/homelab.git
+    targetRevision: main
+    path: cluster/configs/qbittorrent
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: media
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+    # Needs the `media` namespace and Secrets from media-base.
+    retry:
+      limit: 10
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 10m

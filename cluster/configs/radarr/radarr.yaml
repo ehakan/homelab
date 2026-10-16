@@ -1,0 +1,140 @@
+# Radarr: movies. Imports from /data/torrents/movies into /data/media/movies as hardlinks.
+# Settings come from environment variables (RADARR__<SECTION>__<KEY>, the same
+# keys as config.xml); the database and API key are in Secrets.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: radarr
+spec:
+  replicas: 1
+  # Single-node volumes: the old pod must stop before the new one starts.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: radarr
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: radarr
+    spec:
+      # TRaSH's single shared user: every media app runs as 1000:1000, so
+      # they can all read and write each other's files under /data.
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      nodeSelector:
+        kubernetes.io/hostname: hl-tal-tower-01
+      containers:
+        - name: radarr
+          image: ghcr.io/home-operations/radarr:6.4.4.10685
+          env:
+            - name: RADARR__SERVER__PORT
+              value: "7878"
+            - name: RADARR__AUTH__METHOD
+              value: Forms
+            - name: RADARR__AUTH__REQUIRED
+              value: Enabled
+            - name: RADARR__AUTH__APIKEY
+              valueFrom:
+                secretKeyRef:
+                  name: radarr-api-key
+                  key: api-key
+            - name: RADARR__POSTGRES__HOST
+              value: media-postgres-rw
+            - name: RADARR__POSTGRES__PORT
+              value: "5432"
+            - name: RADARR__POSTGRES__USER
+              valueFrom:
+                secretKeyRef:
+                  name: radarr-db
+                  key: username
+            - name: RADARR__POSTGRES__PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: radarr-db
+                  key: password
+            - name: RADARR__POSTGRES__MAINDB
+              value: radarr-main
+            - name: RADARR__POSTGRES__LOGDB
+              value: radarr-log
+          ports:
+            - name: http
+              containerPort: 7878
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: http
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            # TRaSH: the *arr apps see all of /data (one filesystem: hardlinks).
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: radarr-config
+        - name: data
+          persistentVolumeClaim:
+            claimName: media-data
+---
+# config.xml, logs, backups and cover images; the database is in media-postgres.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: radarr-config
+spec:
+  storageClassName: local-path
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: radarr
+spec:
+  selector:
+    app.kubernetes.io/name: radarr
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: radarr
+spec:
+  parentRefs:
+    - name: internal
+      namespace: gateway
+      sectionName: https
+  hostnames:
+    - radarr.lab.ehakan.dev
+  rules:
+    - backendRefs:
+        - name: radarr
+          port: 80

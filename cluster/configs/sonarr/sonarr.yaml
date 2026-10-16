@@ -1,0 +1,143 @@
+# Sonarr: TV. Imports from /data/torrents/tv into /data/media/tv as hardlinks.
+# Settings come from environment variables (SONARR__<SECTION>__<KEY>, the same
+# keys as config.xml); the database and API key are in Secrets.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sonarr
+spec:
+  replicas: 1
+  # Single-node volumes: the old pod must stop before the new one starts.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sonarr
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sonarr
+    spec:
+      # TRaSH's single shared user: every media app runs as 1000:1000, so
+      # they can all read and write each other's files under /data.
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      nodeSelector:
+        kubernetes.io/hostname: hl-tal-tower-01
+      containers:
+        - name: sonarr
+          # v4. home-operations now builds Sonarr's develop (v5) branch;
+          # 4.0.20.3012 is its last v4 build (the release candidate of stable
+          # 4.0.20.3014).
+          image: ghcr.io/home-operations/sonarr:4.0.20.3012
+          env:
+            - name: SONARR__SERVER__PORT
+              value: "8989"
+            - name: SONARR__AUTH__METHOD
+              value: Forms
+            - name: SONARR__AUTH__REQUIRED
+              value: Enabled
+            - name: SONARR__AUTH__APIKEY
+              valueFrom:
+                secretKeyRef:
+                  name: sonarr-api-key
+                  key: api-key
+            - name: SONARR__POSTGRES__HOST
+              value: media-postgres-rw
+            - name: SONARR__POSTGRES__PORT
+              value: "5432"
+            - name: SONARR__POSTGRES__USER
+              valueFrom:
+                secretKeyRef:
+                  name: sonarr-db
+                  key: username
+            - name: SONARR__POSTGRES__PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: sonarr-db
+                  key: password
+            - name: SONARR__POSTGRES__MAINDB
+              value: sonarr-main
+            - name: SONARR__POSTGRES__LOGDB
+              value: sonarr-log
+          ports:
+            - name: http
+              containerPort: 8989
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: http
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            # TRaSH: the *arr apps see all of /data (one filesystem: hardlinks).
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: sonarr-config
+        - name: data
+          persistentVolumeClaim:
+            claimName: media-data
+---
+# config.xml, logs, backups and cover images; the database is in media-postgres.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sonarr-config
+spec:
+  storageClassName: local-path
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sonarr
+spec:
+  selector:
+    app.kubernetes.io/name: sonarr
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: sonarr
+spec:
+  parentRefs:
+    - name: internal
+      namespace: gateway
+      sectionName: https
+  hostnames:
+    - sonarr.lab.ehakan.dev
+  rules:
+    - backendRefs:
+        - name: sonarr
+          port: 80

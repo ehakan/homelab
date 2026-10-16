@@ -1,0 +1,74 @@
+# Cleanuparr: database `cleanuparr` (DATABASE_PROVIDER=postgres; it creates the
+# schemas `data`, `events` and `users` in it), owned by the role `cleanuparr`.
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: cleanuparr
+spec:
+  cluster:
+    name: media-postgres
+  name: cleanuparr
+  owner: cleanuparr
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: DatabaseRole
+metadata:
+  name: cleanuparr
+spec:
+  cluster:
+    name: media-postgres
+  name: cleanuparr
+  login: true
+  passwordSecret:
+    name: cleanuparr-db
+---
+# The role's password: read back from the 1Password item `cleanuparr-db` (vault
+# homelab-generated) into the Secret `cleanuparr-db`, which the app reads too.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: cleanuparr-db
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: homelab-generated
+  target:
+    name: cleanuparr-db
+    template:
+      type: kubernetes.io/basic-auth
+      metadata:
+        labels:
+          # Apply password changes to the role.
+          cnpg.io/reload: "true"
+      data:
+        username: cleanuparr
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: cleanuparr-db/password
+---
+# Generates the password once into that item.
+apiVersion: external-secrets.io/v1alpha1
+kind: PushSecret
+metadata:
+  name: cleanuparr-db
+spec:
+  # Only creates the item; never overwrites it.
+  updatePolicy: IfNotExists
+  refreshInterval: 1h
+  secretStoreRefs:
+    - kind: ClusterSecretStore
+      name: homelab-generated
+  selector:
+    generatorRef:
+      apiVersion: generators.external-secrets.io/v1alpha1
+      kind: Password
+      name: password
+  data:
+    - match:
+        secretKey: password
+        remoteRef:
+          remoteKey: cleanuparr-db
+          property: password

@@ -24,6 +24,15 @@ After the one-time bootstrap below, changes happen only through git: never
 | `tailscale-operator`     | Tailscale operator 1.102.4 and the subnet router for the tailnet                                                  | `tailscale`           |
 | `local-path-provisioner` | local-path-provisioner v0.0.37: default StorageClass `local-path`, volumes on the Talos `local-storage` partition | `local-path-storage`  |
 | `cloudnative-pg`         | CloudNativePG operator 1.30.1 (chart 0.29.1)                                                                      | `cnpg-system`         |
+| `gpu-operator`            | NVIDIA GPU Operator v26.7.2: device plugin, `nvidia` RuntimeClass (driver and toolkit come from Talos)            | `gpu-operator`         |
+| `media-base`              | Media stack base: the shared `/data` volume and the `media-postgres` PostgreSQL cluster (see [Media stack](#media-stack)) | `media`                |
+| `prowlarr`                | Prowlarr 2.6.5: indexer manager                                                                                   | `media`                |
+| `qbittorrent`             | qBittorrent 5.2.4: downloads to `/data/torrents`                                                                  | `media`                |
+| `radarr`                  | Radarr 6.4.4: movies                                                                                              | `media`                |
+| `sonarr`                  | Sonarr 4.0.20: TV                                                                                                 | `media`                |
+| `seerr`                   | Seerr v3.5.0: media requests                                                                                      | `media`                |
+| `jellyfin`                | Jellyfin 12.2: media server, NVENC transcoding on hl-tal-tower-01's GTX 1050 Ti                                   | `media`                |
+| `cleanuparr`              | Cleanuparr 2.10.11: removes malware (e.g. `.exe`), stalled and failed downloads                                    | `media`                |
 
 Traffic into the cluster goes through Gateway API (`Gateway`, `HTTPRoute`,
 ...) served by agentgateway. Don't use `Ingress` resources.
@@ -251,6 +260,52 @@ Outside the cluster:
 - Router port-forward: 443 and 80 → `192.168.11.201` (manual, once there's a
   public service).
 - Public DNS and the Tailscale side: [`terraform/`](../terraform).
+
+## Media stack
+
+Namespace `media`, everything on `hl-tal-tower-01`, following the
+[TRaSH Guides](https://trash-guides.info/File-and-Folder-Structure/How-to-set-up/Docker/):
+
+- One volume, `media-data`, holds `/data/torrents/{movies,tv}` and
+  `/data/media/{movies,tv}`. It's one filesystem, so imports are hardlinks and
+  moves are instant. qBittorrent sees `/data/torrents`, Radarr and Sonarr all of
+  `/data`, Jellyfin `/data/media`. It's `ReadWriteOnce`, which allows any number
+  of pods on the same node.
+- Every app runs as `1000:1000` (TRaSH's single shared user).
+- Radarr, Sonarr, Prowlarr, Seerr and Cleanuparr use `media-postgres` (CloudNativePG, one
+  role and database(s) per app, `configs/media-base/db-*.yaml`). Jellyfin uses
+  SQLite. Passwords and the *arr API keys are generated into the 1Password vault
+  `homelab-generated` (`<app>-db`, `<app>-api-key`).
+- All UIs are at `https://<app>.lab.ehakan.dev` on the `internal` Gateway.
+
+One-time setup in the UIs (not configurable from git in these versions):
+
+1. Radarr, Sonarr, Prowlarr: create the login on first visit; save it in
+   1Password (`homelab-management`).
+2. qBittorrent: the first password is in the pod log (`kubectl -n media logs
+   deploy/qbittorrent`); change it. Default save path `/data/torrents`,
+   categories `movies` → `/data/torrents/movies` and `tv` →
+   `/data/torrents/tv`
+   ([TRaSH](https://trash-guides.info/Downloaders/qBittorrent/Basic-Setup/)).
+   Under Downloads → "Excluded file names", add `*.exe`, `*.lnk`, `*.scr`,
+   `*.bat`, `*.cmd` and `*.msi`: qBittorrent then never downloads them, before
+   Cleanuparr's next run.
+3. Radarr and Sonarr: root folders `/data/media/movies` and `/data/media/tv`;
+   download client qBittorrent at `qbittorrent:80` with category `movies` or
+   `tv`.
+4. Prowlarr: add indexers, then Radarr (`http://radarr`) and Sonarr
+   (`http://sonarr`) as apps with their API keys
+   (`kubectl -n media get secret <app>-api-key -o jsonpath='{.data.api-key}' | base64 -d`).
+5. Jellyfin: setup wizard, libraries `/data/media/movies` and `/data/media/tv`.
+   Under Playback → Transcoding: NVIDIA NVENC, and enable "Throttle
+   transcodes" and "Delete segments" so transcodes stay small.
+6. Seerr: setup wizard with Jellyfin (`http://jellyfin`), Radarr
+   (`http://radarr`) and Sonarr (`http://sonarr`).
+7. Cleanuparr: create the login; add qBittorrent (`http://qbittorrent`) and
+   Radarr and Sonarr (`http://radarr`, `http://sonarr`, API keys as in step 4).
+   Enable the Malware Blocker with the default blocklist and removal from the
+   *arrs' queues (so they blocklist the release and search again), and the
+   Queue Cleaner's strikes for stalled and failed-import downloads.
 
 ## Not set up yet
 

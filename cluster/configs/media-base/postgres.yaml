@@ -1,6 +1,6 @@
 # One PostgreSQL instance for the media apps that support it (Radarr, Sonarr,
-# Prowlarr, Seerr), on hl-tal-tower-01's local-storage partition: no replicas,
-# no failover. Each app gets a role and its database(s): db-<app>.yaml.
+# Prowlarr, Seerr, Cleanuparr), on hl-tal-tower-01's local-storage partition:
+# no replicas, no failover. Each app gets a role and its database(s): db-<app>.yaml.
 # Jellyfin only supports SQLite and qBittorrent has no database.
 #
 # Apps connect to media-postgres-rw:5432 with their `<app>-db` Secret.

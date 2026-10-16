@@ -1,0 +1,141 @@
+# Jellyfin: the media server, transcoding on the GTX 1050 Ti (NVENC/NVDEC;
+# H.264 and HEVC, no AV1 encoding). SQLite only, on its config volume. Private
+# for now: internal Gateway only.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jellyfin
+spec:
+  replicas: 1
+  # Single-node volumes: the old pod must stop before the new one starts.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: jellyfin
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: jellyfin
+    spec:
+      # TRaSH's single shared user: every media app runs as 1000:1000, so
+      # they can all read and write each other's files under /data.
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      nodeSelector:
+        kubernetes.io/hostname: hl-tal-tower-01
+      # NVIDIA container runtime (gpu-operator), so the driver libraries are
+      # mounted in; the image already sets NVIDIA_DRIVER_CAPABILITIES
+      # (compute,video,utility).
+      runtimeClassName: nvidia
+      containers:
+        - name: jellyfin
+          image: jellyfin/jellyfin:12.2
+          env:
+            - name: JELLYFIN_PublishedServerUrl
+              value: https://jellyfin.lab.ehakan.dev
+          ports:
+            - name: http
+              containerPort: 8096
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              memory: 6Gi
+              nvidia.com/gpu: 1
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            # Image and metadata cache, and transcodes (/cache/transcodes).
+            - name: cache
+              mountPath: /cache
+            # TRaSH: the media server only sees /data/media.
+            - name: data
+              mountPath: /data/media
+              subPath: media
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: jellyfin-config
+        - name: cache
+          persistentVolumeClaim:
+            claimName: jellyfin-cache
+        - name: data
+          persistentVolumeClaim:
+            claimName: media-data
+---
+# Library database (SQLite), metadata and settings.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jellyfin-config
+spec:
+  storageClassName: local-path
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 10Gi
+---
+# Cache and transcodes, on the local-storage partition instead of an emptyDir:
+# a few 4K transcodes would fill the node's 80GiB EPHEMERAL partition and get
+# pods evicted. Keep transcodes small with Jellyfin's "Throttle transcodes"
+# and "Delete segments" settings (cluster/README.md). local-path doesn't
+# enforce the size.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jellyfin-cache
+spec:
+  storageClassName: local-path
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 50Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jellyfin
+spec:
+  selector:
+    app.kubernetes.io/name: jellyfin
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: jellyfin
+spec:
+  parentRefs:
+    - name: internal
+      namespace: gateway
+      sectionName: https
+  hostnames:
+    - jellyfin.lab.ehakan.dev
+  rules:
+    - backendRefs:
+        - name: jellyfin
+          port: 80
