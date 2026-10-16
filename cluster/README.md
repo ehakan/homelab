@@ -278,36 +278,40 @@ Namespace `media`, everything on `hl-tal-tower-01`, following the
   `homelab-generated` (`<app>-db`, `<app>-api-key`).
 - All UIs are at `https://<app>.lab.ehakan.dev` on the `internal` Gateway.
 
-One-time setup in the UIs (not configurable from git in these versions):
+App settings that git can't hold (these versions store them in their own
+databases) were set once through each app's API on 2026-10-16. Redo them after
+a rebuild, or if an app's config volume or database is lost. Every login is
+user `admin`, password in 1Password `homelab-management` → `<app>-admin`
+(Seerr signs in with the Jellyfin account). API keys:
+`kubectl -n media get secret <app>-api-key -o jsonpath='{.data.api-key}' | base64 -d`.
 
-1. Radarr, Sonarr, Prowlarr: create the login on first visit; save it in
-   1Password (`homelab-management`).
-2. qBittorrent: log in as `admin` with the password from the 1Password item
-   `qbittorrent-admin` (`homelab-management`); an init container writes it into
-   qBittorrent.conf on every start, so change it only in 1Password and restart
-   the pod. Default save path `/data/torrents`,
-   categories `movies` → `/data/torrents/movies` and `tv` →
-   `/data/torrents/tv`
-   ([TRaSH](https://trash-guides.info/Downloaders/qBittorrent/Basic-Setup/)).
-   Under Downloads → "Excluded file names", add `*.exe`, `*.lnk`, `*.scr`,
-   `*.bat`, `*.cmd` and `*.msi`: qBittorrent then never downloads them, before
-   Cleanuparr's next run.
+1. Radarr, Sonarr, Prowlarr: login set via `PUT /api/v{1,3}/config/host`.
+2. qBittorrent: login written by its init container on every start (change it
+   only in 1Password, then restart the pod). Set through its Web API, per
+   [TRaSH](https://trash-guides.info/Downloaders/qBittorrent/Basic-Setup/):
+   automatic torrent management, default save path `/data/torrents`, no
+   incomplete folder, categories `movies` and `tv` (→ `/data/torrents/<cat>`),
+   excluded file names `*.rar`, `*.r[0-9]*`, `*.exe`, `*.lnk`, `*.scr`,
+   `*.bat`, `*.cmd`, `*.msi`.
 3. Radarr and Sonarr: root folders `/data/media/movies` and `/data/media/tv`;
-   download client qBittorrent at `qbittorrent:80` with category `movies` or
-   `tv`.
-4. Prowlarr: add indexers, then Radarr (`http://radarr`) and Sonarr
-   (`http://sonarr`) as apps with their API keys
-   (`kubectl -n media get secret <app>-api-key -o jsonpath='{.data.api-key}' | base64 -d`).
-5. Jellyfin: setup wizard, libraries `/data/media/movies` and `/data/media/tv`.
-   Under Playback → Transcoding: NVIDIA NVENC, and enable "Throttle
-   transcodes" and "Delete segments" so transcodes stay small.
-6. Seerr: setup wizard with Jellyfin (`http://jellyfin`), Radarr
-   (`http://radarr`) and Sonarr (`http://sonarr`).
-7. Cleanuparr: create the login; add qBittorrent (`http://qbittorrent`) and
-   Radarr and Sonarr (`http://radarr`, `http://sonarr`, API keys as in step 4).
-   Enable the Malware Blocker with the default blocklist and removal from the
-   *arrs' queues (so they blocklist the release and search again), and the
-   Queue Cleaner's strikes for stalled and failed-import downloads.
+   download client qBittorrent (`qbittorrent:80`, category `movies` / `tv`).
+4. Prowlarr: Radarr (`http://radarr`) and Sonarr (`http://sonarr`) as apps,
+   full sync, rejecting blocklisted torrent hashes. **Indexers: add your own**;
+   they sync to both.
+5. Jellyfin: startup wizard (English, US metadata), libraries Movies
+   (`/data/media/movies`) and Shows (`/data/media/tv`), transcoding NVENC with
+   hardware decoding of H.264, HEVC, MPEG-2, VC-1 and VP9 (10-bit HEVC/VP9),
+   tone-mapping, throttling and segment deletion. API calls need the
+   `Authorization: MediaBrowser ...` header; Jellyfin 12 rejects
+   `X-Emby-Authorization`.
+6. Seerr: signed in with Jellyfin's `admin` (Seerr's admin), both libraries
+   enabled, Radarr and Sonarr as defaults with quality profile `HD-1080p`.
+7. Cleanuparr: qBittorrent, Radarr and Sonarr connected; Malware Blocker on
+   for both with the default
+   [blacklist](https://raw.githubusercontent.com/Cleanuparr/Cleanuparr/main/blacklist)
+   (checks every 5 seconds); Queue Cleaner every 5 minutes, 3 strikes for
+   failed imports, errored and stuck-on-metadata downloads. Removed releases
+   are blocklisted in Radarr/Sonarr but not re-searched immediately.
 
 ## Not set up yet
 
