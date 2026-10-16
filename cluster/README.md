@@ -299,7 +299,8 @@ user `admin`, password in 1Password `homelab-management` → `<app>-admin`
 4. Prowlarr: Radarr (`http://radarr`) and Sonarr (`http://sonarr`) as apps,
    full sync, rejecting blocklisted torrent hashes. Indexer Proxy FlareSolverr
    (`http://flaresolverr:8191/`) with tag `flaresolverr`: give that tag to
-   indexers behind Cloudflare. **Indexers: add your own**; they sync to both.
+   indexers behind Cloudflare. Indexers: 1337x (public, tagged `flaresolverr`);
+   Prowlarr syncs them to Radarr and Sonarr.
 5. Jellyfin: startup wizard (English, US metadata), libraries Movies
    (`/data/media/movies`) and Shows (`/data/media/tv`), transcoding NVENC with
    hardware decoding of H.264, HEVC, MPEG-2, VC-1 and VP9 (10-bit HEVC/VP9),
