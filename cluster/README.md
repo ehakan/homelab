@@ -303,7 +303,10 @@ user `admin`, password in 1Password `homelab-management` → `<app>-admin`
    indexers behind Cloudflare. Indexers: 1337x (public, tagged `flaresolverr`);
    Prowlarr syncs them to Radarr and Sonarr.
 5. Jellyfin: startup wizard (English, US metadata), libraries Movies
-   (`/data/media/movies`) and Shows (`/data/media/tv`), transcoding NVENC with
+   (`/data/media/movies`) and Shows (`/data/media/tv`) with real-time
+   monitoring and TheMovieDb metadata and images for every item type (a
+   library created through the API gets neither unless its `LibraryOptions`
+   set them: `EnableRealtimeMonitor`, `TypeOptions`), transcoding NVENC with
    hardware decoding of H.264, HEVC, MPEG-2, VC-1 and VP9 (10-bit HEVC/VP9),
    tone-mapping, throttling and segment deletion. API calls need the
    `Authorization: MediaBrowser ...` header; Jellyfin 12 rejects
