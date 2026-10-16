@@ -1,7 +1,7 @@
 # qBittorrent: downloads into /data/torrents/<category> (TRaSH: it only sees
-# /data/torrents). No inbound port: not seeding, no VPN for now. WebUI
-# settings, categories and the download paths are set once in its UI
-# (cluster/README.md).
+# /data/torrents). No inbound port: not seeding, no VPN for now. The WebUI
+# login comes from 1Password (admin.yaml); every other setting is managed in
+# its UI and kept in qBittorrent.conf on the config volume.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -47,6 +47,102 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /data
+        # On the very first start, seed qBittorrent.conf from the image's
+        # defaults (what its entrypoint would do), so the next step has a file
+        # to edit and the image's tuning is kept.
+        - name: default-config
+          image: ghcr.io/home-operations/qbittorrent:5.2.4
+          command:
+            - sh
+            - -c
+            - |
+              conf=/config/qBittorrent/qBittorrent.conf
+              [ -f "$conf" ] || { mkdir -p "${conf%/*}" && cp /defaults/qBittorrent.conf "$conf"; }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: config
+              mountPath: /config
+        # Writes the WebUI login from the `qbittorrent-admin` Secret into
+        # qBittorrent.conf on every start. Only these lines are touched; every
+        # other setting stays as qBittorrent wrote it:
+        # - WebUI\Username
+        # - WebUI\Password_PBKDF2: qBittorrent's format (PBKDF2-HMAC-SHA512,
+        #   100000 iterations, 16-byte salt), rewritten only when it doesn't
+        #   match the Secret
+        # - WebUI\AuthSubnetWhitelistEnabled=false: the image's default skips
+        #   the login for all private IPs, which includes the Gateway.
+        - name: webui-credentials
+          image: python:3.14-alpine
+          command:
+            - python3
+            - -c
+            - |
+              import base64, hashlib, hmac, os, re
+
+              CONF = "/config/qBittorrent/qBittorrent.conf"
+              ITERATIONS = 100000
+              password = os.environ["WEBUI_PASSWORD"].encode()
+              lines = open(CONF, encoding="utf-8").read().splitlines()
+
+              def current(key):
+                  for line in lines:
+                      if line.startswith(key + "="):
+                          return line.split("=", 1)[1]
+                  return ""
+
+              def matches(stored):
+                  m = re.fullmatch(r'"?@ByteArray\(([^:]+):([^)]+)\)"?', stored)
+                  if not m:
+                      return False
+                  salt, key = (base64.b64decode(part) for part in m.groups())
+                  derived = hashlib.pbkdf2_hmac("sha512", password, salt, ITERATIONS, len(key))
+                  return hmac.compare_digest(derived, key)
+
+              wanted = {
+                  "WebUI\\Username": os.environ["WEBUI_USERNAME"],
+                  "WebUI\\AuthSubnetWhitelistEnabled": "false",
+              }
+              if not matches(current("WebUI\\Password_PBKDF2")):
+                  salt = os.urandom(16)
+                  key = hashlib.pbkdf2_hmac("sha512", password, salt, ITERATIONS, 64)
+                  wanted["WebUI\\Password_PBKDF2"] = '"@ByteArray({}:{})"'.format(
+                      base64.b64encode(salt).decode(), base64.b64encode(key).decode())
+
+              # Replace existing lines; add missing ones under [Preferences].
+              for i, line in enumerate(lines):
+                  key = line.split("=", 1)[0]
+                  if key in wanted:
+                      lines[i] = key + "=" + wanted.pop(key)
+              if wanted:
+                  if "[Preferences]" not in lines:
+                      lines += ["", "[Preferences]"]
+                  at = lines.index("[Preferences]") + 1
+                  lines[at:at] = [k + "=" + v for k, v in wanted.items()]
+
+              with open(CONF + ".tmp", "w", encoding="utf-8") as f:
+                  f.write("\n".join(lines) + "\n")
+              os.replace(CONF + ".tmp", CONF)
+          env:
+            - name: WEBUI_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: qbittorrent-admin
+                  key: username
+            - name: WEBUI_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: qbittorrent-admin
+                  key: password
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: config
+              mountPath: /config
       containers:
         - name: qbittorrent
           image: ghcr.io/home-operations/qbittorrent:5.2.4

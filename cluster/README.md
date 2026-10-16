@@ -282,8 +282,10 @@ One-time setup in the UIs (not configurable from git in these versions):
 
 1. Radarr, Sonarr, Prowlarr: create the login on first visit; save it in
    1Password (`homelab-management`).
-2. qBittorrent: the first password is in the pod log (`kubectl -n media logs
-   deploy/qbittorrent`); change it. Default save path `/data/torrents`,
+2. qBittorrent: log in as `admin` with the password from the 1Password item
+   `qbittorrent-admin` (`homelab-management`); an init container writes it into
+   qBittorrent.conf on every start, so change it only in 1Password and restart
+   the pod. Default save path `/data/torrents`,
    categories `movies` → `/data/torrents/movies` and `tv` →
    `/data/torrents/tv`
    ([TRaSH](https://trash-guides.info/Downloaders/qBittorrent/Basic-Setup/)).

@@ -12,6 +12,7 @@ spec:
         - argocd
         - cert-manager # Cloudflare token for DNS-01
         - tailscale # operator OAuth client
+        - media # WebUI logins (qbittorrent-admin, ...)
   provider:
     onepasswordSDK:
       vault: homelab-management

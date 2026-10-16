@@ -1,0 +1,21 @@
+# qBittorrent WebUI login: the 1Password item `qbittorrent-admin` (vault
+# homelab-management, user `admin`). The `webui-credentials` init container in
+# qbittorrent.yaml writes it into qBittorrent.conf on every start.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: qbittorrent-admin
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: homelab-management
+  target:
+    name: qbittorrent-admin
+  data:
+    - secretKey: username
+      remoteRef:
+        key: qbittorrent-admin/username
+    - secretKey: password
+      remoteRef:
+        key: qbittorrent-admin/password
