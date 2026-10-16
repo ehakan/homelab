@@ -1,0 +1,22 @@
+# One PostgreSQL instance for the media apps that support it (Radarr, Sonarr,
+# Prowlarr, Seerr), on hl-tal-tower-01's local-storage partition: no replicas,
+# no failover. Each app gets a role and its database(s): db-<app>.yaml.
+# Jellyfin only supports SQLite and qBittorrent has no database.
+#
+# Apps connect to media-postgres-rw:5432 with their `<app>-db` Secret.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: media-postgres
+spec:
+  instances: 1
+  # Pinned, so operator upgrades don't restart the database with a new image.
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.6-standard-trixie
+  # With one instance, a PodDisruptionBudget would block draining the node.
+  enablePDB: false
+  affinity:
+    nodeSelector:
+      kubernetes.io/hostname: hl-tal-tower-01
+  storage:
+    storageClass: local-path
+    size: 10Gi

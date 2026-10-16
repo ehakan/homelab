@@ -1,0 +1,73 @@
+# Seerr: database `seerr` (DB_TYPE=postgres), owned by the role `seerr`.
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: seerr
+spec:
+  cluster:
+    name: media-postgres
+  name: seerr
+  owner: seerr
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: DatabaseRole
+metadata:
+  name: seerr
+spec:
+  cluster:
+    name: media-postgres
+  name: seerr
+  login: true
+  passwordSecret:
+    name: seerr-db
+---
+# The role's password: read back from the 1Password item `seerr-db` (vault
+# homelab-generated) into the Secret `seerr-db`, which the app reads too.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: seerr-db
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: homelab-generated
+  target:
+    name: seerr-db
+    template:
+      type: kubernetes.io/basic-auth
+      metadata:
+        labels:
+          # Apply password changes to the role.
+          cnpg.io/reload: "true"
+      data:
+        username: seerr
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: seerr-db/password
+---
+# Generates the password once into that item.
+apiVersion: external-secrets.io/v1alpha1
+kind: PushSecret
+metadata:
+  name: seerr-db
+spec:
+  # Only creates the item; never overwrites it.
+  updatePolicy: IfNotExists
+  refreshInterval: 1h
+  secretStoreRefs:
+    - kind: ClusterSecretStore
+      name: homelab-generated
+  selector:
+    generatorRef:
+      apiVersion: generators.external-secrets.io/v1alpha1
+      kind: Password
+      name: password
+  data:
+    - match:
+        secretKey: password
+        remoteRef:
+          remoteKey: seerr-db
+          property: password

@@ -1,0 +1,6 @@
+# Every media app lives here: a volume can only be shared within a namespace,
+# and the apps share /data (data.yaml).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: media

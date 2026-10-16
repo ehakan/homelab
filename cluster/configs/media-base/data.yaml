@@ -1,0 +1,28 @@
+# The single /data volume from the TRaSH Guides folder structure
+# (https://trash-guides.info/File-and-Folder-Structure/How-to-set-up/Docker/):
+#
+#   /data
+#   ├── torrents/{movies,tv}    qBittorrent mounts /data/torrents
+#   └── media/{movies,tv}       Jellyfin mounts /data/media
+#
+# Radarr and Sonarr mount all of /data. One volume is one filesystem, so
+# imports are hardlinks and moves are instant. The folders are created by
+# qBittorrent's init container.
+#
+# ReadWriteOnce means one node, not one pod: every media pod runs on
+# hl-tal-tower-01 and mounts this same volume. (local-path can't provision
+# ReadWriteMany on node-local paths anyway.) The size isn't enforced by
+# local-path; the node's local-storage partition is 392GB.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: media-data
+  annotations:
+    # Provision on this node now, instead of wherever the first pod lands.
+    volume.kubernetes.io/selected-node: hl-tal-tower-01
+spec:
+  storageClassName: local-path
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 300Gi

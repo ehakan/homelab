@@ -1,0 +1,83 @@
+# Radarr: main and log databases (RADARR__POSTGRES__MAINDB / __LOGDB), owned by the role `radarr`.
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: radarr-main
+spec:
+  cluster:
+    name: media-postgres
+  name: radarr-main
+  owner: radarr
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: radarr-log
+spec:
+  cluster:
+    name: media-postgres
+  name: radarr-log
+  owner: radarr
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: DatabaseRole
+metadata:
+  name: radarr
+spec:
+  cluster:
+    name: media-postgres
+  name: radarr
+  login: true
+  passwordSecret:
+    name: radarr-db
+---
+# The role's password: read back from the 1Password item `radarr-db` (vault
+# homelab-generated) into the Secret `radarr-db`, which the app reads too.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: radarr-db
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: homelab-generated
+  target:
+    name: radarr-db
+    template:
+      type: kubernetes.io/basic-auth
+      metadata:
+        labels:
+          # Apply password changes to the role.
+          cnpg.io/reload: "true"
+      data:
+        username: radarr
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: radarr-db/password
+---
+# Generates the password once into that item.
+apiVersion: external-secrets.io/v1alpha1
+kind: PushSecret
+metadata:
+  name: radarr-db
+spec:
+  # Only creates the item; never overwrites it.
+  updatePolicy: IfNotExists
+  refreshInterval: 1h
+  secretStoreRefs:
+    - kind: ClusterSecretStore
+      name: homelab-generated
+  selector:
+    generatorRef:
+      apiVersion: generators.external-secrets.io/v1alpha1
+      kind: Password
+      name: password
+  data:
+    - match:
+        secretKey: password
+        remoteRef:
+          remoteKey: radarr-db
+          property: password

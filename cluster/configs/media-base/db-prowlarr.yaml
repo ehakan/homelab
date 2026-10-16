@@ -1,0 +1,83 @@
+# Prowlarr: main and log databases (PROWLARR__POSTGRES__MAINDB / __LOGDB), owned by the role `prowlarr`.
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: prowlarr-main
+spec:
+  cluster:
+    name: media-postgres
+  name: prowlarr-main
+  owner: prowlarr
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: prowlarr-log
+spec:
+  cluster:
+    name: media-postgres
+  name: prowlarr-log
+  owner: prowlarr
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: DatabaseRole
+metadata:
+  name: prowlarr
+spec:
+  cluster:
+    name: media-postgres
+  name: prowlarr
+  login: true
+  passwordSecret:
+    name: prowlarr-db
+---
+# The role's password: read back from the 1Password item `prowlarr-db` (vault
+# homelab-generated) into the Secret `prowlarr-db`, which the app reads too.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: prowlarr-db
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: homelab-generated
+  target:
+    name: prowlarr-db
+    template:
+      type: kubernetes.io/basic-auth
+      metadata:
+        labels:
+          # Apply password changes to the role.
+          cnpg.io/reload: "true"
+      data:
+        username: prowlarr
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: prowlarr-db/password
+---
+# Generates the password once into that item.
+apiVersion: external-secrets.io/v1alpha1
+kind: PushSecret
+metadata:
+  name: prowlarr-db
+spec:
+  # Only creates the item; never overwrites it.
+  updatePolicy: IfNotExists
+  refreshInterval: 1h
+  secretStoreRefs:
+    - kind: ClusterSecretStore
+      name: homelab-generated
+  selector:
+    generatorRef:
+      apiVersion: generators.external-secrets.io/v1alpha1
+      kind: Password
+      name: password
+  data:
+    - match:
+        secretKey: password
+        remoteRef:
+          remoteKey: prowlarr-db
+          property: password

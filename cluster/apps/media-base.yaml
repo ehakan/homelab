@@ -1,0 +1,31 @@
+# Shared pieces of the media stack (namespace `media`, all on hl-tal-tower-01):
+# the TRaSH-style /data volume, and the PostgreSQL cluster with one role and
+# database(s) per app. The apps themselves are separate Applications. See
+# cluster/configs/media-base/.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: media-base
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/ehakan/homelab.git
+    targetRevision: main
+    path: cluster/configs/media-base
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: media
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+    # Needs the CloudNativePG and External Secrets CRDs.
+    retry:
+      limit: 10
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 10m
