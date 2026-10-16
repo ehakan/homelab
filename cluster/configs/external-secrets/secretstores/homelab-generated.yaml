@@ -12,8 +12,8 @@ metadata:
   name: homelab-generated
 spec:
   conditions:
-    # None yet: an empty list allows no namespace.
-    - namespaces: []
+    - namespaces:
+        - media # database passwords, API keys
   provider:
     onepasswordSDK:
       vault: homelab-generated
