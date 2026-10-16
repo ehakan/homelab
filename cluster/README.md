@@ -298,7 +298,8 @@ user `admin`, password in 1Password `homelab-management` → `<app>-admin`
    download client qBittorrent (`qbittorrent:80`, category `movies` / `tv`).
 4. Prowlarr: Radarr (`http://radarr`) and Sonarr (`http://sonarr`) as apps,
    full sync, rejecting blocklisted torrent hashes. Indexer Proxy FlareSolverr
-   (`http://flaresolverr:8191/`) with tag `flaresolverr`: give that tag to
+   (`http://flaresolverr:8191/`, request timeout 180s: a fresh Cloudflare
+   solve took 50s) with tag `flaresolverr`: give that tag to
    indexers behind Cloudflare. Indexers: 1337x (public, tagged `flaresolverr`);
    Prowlarr syncs them to Radarr and Sonarr.
 5. Jellyfin: startup wizard (English, US metadata), libraries Movies
