@@ -1,0 +1,183 @@
+# Configarr: syncs quality profiles, custom formats and quality sizes from
+# TRaSH Guides into Radarr and Sonarr (config.yml in the ConfigMap below).
+# Runs hourly and exits; a sync only changes what differs. Don't also run
+# Recyclarr: both write the same profiles and formats.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: configarr
+spec:
+  schedule: "17 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: Never
+          # The image runs as root by default; uid 1000 is its `node` user.
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            runAsNonRoot: true
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: configarr
+              image: ghcr.io/raydak-labs/configarr:1.35.0
+              env:
+                - name: SONARR_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: sonarr-api-key
+                      key: api-key
+                - name: RADARR_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: radarr-api-key
+                      key: api-key
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  memory: 1Gi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: [ALL]
+              volumeMounts:
+                - name: config
+                  mountPath: /app/config/config.yml
+                  subPath: config.yml
+                  readOnly: true
+                # Sparse clone of TRaSH Guides, fetched again on every run.
+                - name: repos
+                  mountPath: /app/repos
+          volumes:
+            - name: config
+              configMap:
+                name: configarr
+            - name: repos
+              emptyDir: {}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: configarr
+data:
+  config.yml: |
+    trashGuideUrl: https://github.com/TRaSH-Guides/Guides
+
+    # Our own formats, next to the TRaSH ones. Release names rarely mention
+    # subtitles, so these go by audio languages in the name (language IDs are
+    # the same in Radarr and Sonarr: German 4, Turkish 17).
+    customFormatDefinitions:
+      - trash_id: homelab-language-turkish
+        name: "Language: Turkish"
+        includeCustomFormatWhenRenaming: false
+        specifications:
+          - name: Turkish
+            implementation: LanguageSpecification
+            negate: false
+            required: false
+            fields:
+              value: 17
+      - trash_id: homelab-language-german
+        name: "Language: German"
+        includeCustomFormatWhenRenaming: false
+        specifications:
+          - name: German
+            implementation: LanguageSpecification
+            negate: false
+            required: false
+            fields:
+              value: 4
+
+    sonarr:
+      sonarr:
+        base_url: http://sonarr
+        api_key: !env SONARR_API_KEY
+        # Removes formats not defined here (the old hand-made `Italian` and
+        # `Season Pack`).
+        delete_unmanaged_custom_formats:
+          enabled: true
+        quality_definition:
+          type: series
+        include:
+          # TRaSH WEB-2160p (Combined): 2160p WEB-DL, 1080p when that's all
+          # there is; upgrades until 2160p and a score of 10000. Pulls in
+          # TRaSH's default format groups (release-group tiers, streaming
+          # services, HDR, unwanted and low-quality releases, x265 without
+          # HDR at 2160p).
+          - template: c4cadd6b35b95f62c3d47a408e53e2f7
+            source: TRASH
+        custom_formats:
+          # Video first: these are TRaSH's except the last three, and the
+          # language bonuses stay below the 50 points between release-group
+          # tiers, so they only decide between releases of equal video quality.
+          - trash_ids:
+              # Language: Not Original. No audio in the show's original
+              # language (an Italian-only release of an English show).
+              - ae575f95ab639ba5d15f663bf019e3e8
+              # DV (w/o HDR fallback). Samsung screens don't play Dolby
+              # Vision; without an HDR10 layer the picture is wrong.
+              - 9b27ab6498ec0f31a3353992e19434ca
+            assign_scores_to:
+              - name: WEB-2160p (Combined)
+                score: -10000
+          - trash_ids:
+              - 10e77b96ae4770a7de645a91a53ce29a # MULTi: several audio tracks
+            assign_scores_to:
+              - name: WEB-2160p (Combined)
+                score: 25
+          - trash_ids:
+              - homelab-language-turkish
+            assign_scores_to:
+              - name: WEB-2160p (Combined)
+                score: 20
+          - trash_ids:
+              - homelab-language-german
+            assign_scores_to:
+              - name: WEB-2160p (Combined)
+                score: 10
+
+    radarr:
+      radarr:
+        base_url: http://radarr
+        api_key: !env RADARR_API_KEY
+        delete_unmanaged_custom_formats:
+          enabled: true
+        quality_definition:
+          type: movie
+        include:
+          # TRaSH UHD Bluray + WEB: 2160p Bluray encodes and WEB-DL (no
+          # remuxes, no 1080p); upgrades until 2160p Bluray and a score of
+          # 10000.
+          - template: 64fb5f9858489bdac2af690e27c8f42f
+            source: TRASH
+        custom_formats:
+          - trash_ids:
+              - d6e9318c875905d6cfb5bee961afcea9 # Language: Not Original
+              - 923b6abef9b17f937fab56cfcf89e1f1 # DV (w/o HDR fallback)
+            assign_scores_to:
+              - name: UHD Bluray + WEB
+                score: -10000
+          - trash_ids:
+              - 0542a48746585dc4444bbbb8a6bdf6ea # MULTi
+            assign_scores_to:
+              - name: UHD Bluray + WEB
+                score: 25
+          - trash_ids:
+              - homelab-language-turkish
+            assign_scores_to:
+              - name: UHD Bluray + WEB
+                score: 20
+          - trash_ids:
+              - homelab-language-german
+            assign_scores_to:
+              - name: UHD Bluray + WEB
+                score: 10

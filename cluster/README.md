@@ -35,6 +35,7 @@ After the one-time bootstrap below, changes happen only through git: never
 | `cleanuparr`              | Cleanuparr 2.10.11: removes malware (e.g. `.exe`), stalled and failed downloads                                    | `media`                |
 | `flaresolverr`            | FlareSolverr v3.5.2: solves Cloudflare challenges for Prowlarr indexers (in-cluster only, no route)               | `media`                |
 | `bazarr`                  | Bazarr 1.6.2: English and Turkish subtitles for the Radarr/Sonarr library                                          | `media`                |
+| `configarr`               | Configarr 1.35.0: hourly CronJob syncing TRaSH quality profiles and custom formats into Radarr and Sonarr           | `media`                |
 
 Traffic into the cluster goes through Gateway API (`Gateway`, `HTTPRoute`,
 ...) served by agentgateway. Don't use `Ingress` resources.
@@ -297,10 +298,9 @@ user `admin`, password in 1Password `homelab-management` → `<app>-admin`
    `*.bat`, `*.cmd`, `*.msi`.
 3. Radarr and Sonarr: root folders `/data/media/movies` and `/data/media/tv`;
    download client qBittorrent (`qbittorrent:80`, category `movies` / `tv`).
-   Custom formats in every quality profile: `Italian` (`\b(ITA|ITALIAN)\b` in
-   the title or Italian audio) scores -10000, so it's never grabbed; Sonarr
-   only: `Season Pack` scores -10 with minimum score -100, so single episodes
-   are preferred but packs still download when nothing else exists.
+   Quality profiles and custom formats come from the `configarr` app (in
+   git, not set here): every series uses `WEB-2160p (Combined)`, every movie
+   `UHD Bluray + WEB`.
    qBittorrent stops torrents at ratio 0 and the *arrs then remove them
    ("Remove Completed"); the hardlinked library files stay.
 4. Prowlarr: Radarr (`http://radarr`) and Sonarr (`http://sonarr`) as apps,
@@ -319,7 +319,8 @@ user `admin`, password in 1Password `homelab-management` → `<app>-admin`
    `Authorization: MediaBrowser ...` header; Jellyfin 12 rejects
    `X-Emby-Authorization`.
 6. Seerr: signed in with Jellyfin's `admin` (Seerr's admin), both libraries
-   enabled, Radarr and Sonarr as defaults with quality profile `HD-1080p`.
+   enabled, Radarr and Sonarr as defaults with quality profiles `UHD Bluray + WEB`
+   and `WEB-2160p (Combined)`.
 7. Cleanuparr: qBittorrent, Radarr and Sonarr connected; Malware Blocker on
    for both with the default
    [blacklist](https://raw.githubusercontent.com/Cleanuparr/Cleanuparr/main/blacklist)
