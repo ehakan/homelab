@@ -297,6 +297,12 @@ user `admin`, password in 1Password `homelab-management` → `<app>-admin`
    `*.bat`, `*.cmd`, `*.msi`.
 3. Radarr and Sonarr: root folders `/data/media/movies` and `/data/media/tv`;
    download client qBittorrent (`qbittorrent:80`, category `movies` / `tv`).
+   Custom formats in every quality profile: `Italian` (`\b(ITA|ITALIAN)\b` in
+   the title or Italian audio) scores -10000, so it's never grabbed; Sonarr
+   only: `Season Pack` scores -10 with minimum score -100, so single episodes
+   are preferred but packs still download when nothing else exists.
+   qBittorrent stops torrents at ratio 0 and the *arrs then remove them
+   ("Remove Completed"); the hardlinked library files stay.
 4. Prowlarr: Radarr (`http://radarr`) and Sonarr (`http://sonarr`) as apps,
    full sync, rejecting blocklisted torrent hashes. Indexer Proxy FlareSolverr
    (`http://flaresolverr:8191/`, request timeout 180s: a fresh Cloudflare
