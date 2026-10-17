@@ -1,0 +1,73 @@
+# Bazarr: database `bazarr` (POSTGRES_ENABLED=true), owned by the role `bazarr`.
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: bazarr
+spec:
+  cluster:
+    name: media-postgres
+  name: bazarr
+  owner: bazarr
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: DatabaseRole
+metadata:
+  name: bazarr
+spec:
+  cluster:
+    name: media-postgres
+  name: bazarr
+  login: true
+  passwordSecret:
+    name: bazarr-db
+---
+# The role's password: read back from the 1Password item `bazarr-db` (vault
+# homelab-generated) into the Secret `bazarr-db`, which the app reads too.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: bazarr-db
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: homelab-generated
+  target:
+    name: bazarr-db
+    template:
+      type: kubernetes.io/basic-auth
+      metadata:
+        labels:
+          # Apply password changes to the role.
+          cnpg.io/reload: "true"
+      data:
+        username: bazarr
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: bazarr-db/password
+---
+# Generates the password once into that item.
+apiVersion: external-secrets.io/v1alpha1
+kind: PushSecret
+metadata:
+  name: bazarr-db
+spec:
+  # Only creates the item; never overwrites it.
+  updatePolicy: IfNotExists
+  refreshInterval: 1h
+  secretStoreRefs:
+    - kind: ClusterSecretStore
+      name: homelab-generated
+  selector:
+    generatorRef:
+      apiVersion: generators.external-secrets.io/v1alpha1
+      kind: Password
+      name: password
+  data:
+    - match:
+        secretKey: password
+        remoteRef:
+          remoteKey: bazarr-db
+          property: password

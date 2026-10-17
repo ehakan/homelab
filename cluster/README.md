@@ -34,6 +34,7 @@ After the one-time bootstrap below, changes happen only through git: never
 | `jellyfin`                | Jellyfin 12.2: media server, NVENC transcoding on hl-tal-tower-01's GTX 1050 Ti                                   | `media`                |
 | `cleanuparr`              | Cleanuparr 2.10.11: removes malware (e.g. `.exe`), stalled and failed downloads                                    | `media`                |
 | `flaresolverr`            | FlareSolverr v3.5.2: solves Cloudflare challenges for Prowlarr indexers (in-cluster only, no route)               | `media`                |
+| `bazarr`                  | Bazarr 1.6.2: English and Turkish subtitles for the Radarr/Sonarr library                                          | `media`                |
 
 Traffic into the cluster goes through Gateway API (`Gateway`, `HTTPRoute`,
 ...) served by agentgateway. Don't use `Ingress` resources.
@@ -273,7 +274,7 @@ Namespace `media`, everything on `hl-tal-tower-01`, following the
   `/data`, Jellyfin `/data/media`. It's `ReadWriteOnce`, which allows any number
   of pods on the same node.
 - Every app runs as `1000:1000` (TRaSH's single shared user).
-- Radarr, Sonarr, Prowlarr, Seerr and Cleanuparr use `media-postgres` (CloudNativePG, one
+- Radarr, Sonarr, Prowlarr, Seerr, Cleanuparr and Bazarr use `media-postgres` (CloudNativePG, one
   role and database(s) per app, `configs/media-base/db-*.yaml`). Jellyfin uses
   SQLite. Passwords and the *arr API keys are generated into the 1Password vault
   `homelab-generated` (`<app>-db`, `<app>-api-key`).
@@ -319,6 +320,10 @@ user `admin`, password in 1Password `homelab-management` → `<app>-admin`
    (checks every 5 seconds); Queue Cleaner every 5 minutes, 3 strikes for
    failed imports, errored and stuck-on-metadata downloads. Removed releases
    are blocklisted in Radarr/Sonarr but not re-searched immediately.
+8. Bazarr: login; Radarr and Sonarr connected; language profile English +
+   Turkish as the default for all movies and series; providers
+   OpenSubtitles.com (login from the 1Password item `opensubtitles`; Bazarr
+   supplies its own API key, no VIP needed) and turkcealtyazi.org.
 
 ## Not set up yet
 
