@@ -130,7 +130,7 @@ data:
               - name: WEB-2160p (Combined)
                 score: -10000
           - trash_ids:
-              - 10e77b96ae4770a7de645a91a53ce29a # MULTi: several audio tracks
+              - 7ba05c6e0e14e793538174c679126996 # MULTi: several audio tracks
             assign_scores_to:
               - name: WEB-2160p (Combined)
                 score: 25
@@ -167,7 +167,7 @@ data:
               - name: UHD Bluray + WEB
                 score: -10000
           - trash_ids:
-              - 0542a48746585dc4444bbbb8a6bdf6ea # MULTi
+              - 4b900e171accbfb172729b63323ea8ca # MULTi
             assign_scores_to:
               - name: UHD Bluray + WEB
                 score: 25
