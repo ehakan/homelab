@@ -1,11 +1,12 @@
 # OpenTofu
 
-Everything on Cloudflare and Tailscale that no in-cluster controller manages
-(cert-manager, the Tailscale operator) is managed here.
+Everything on Cloudflare, GitHub and Tailscale that no in-cluster controller
+manages (cert-manager, the Tailscale operator) is managed here.
 
 | Module | Manages |
 |---|---|
 | [`cloudflare/`](cloudflare) | Public DNS `*.lab.ehakan.dev` → home IP; cert-manager's API token |
+| [`github/`](github) | The private repo `homelab-private` |
 | [`tailscale/`](tailscale) | Tailnet policy (tags, subnet route approval, access), split DNS for `lab.ehakan.dev`, the operator's OAuth client |
 
 Credentials the modules generate (cert-manager's token, the operator's OAuth
@@ -54,6 +55,7 @@ op run --env-file terraform/op.env -- tofu -chdir=terraform/<module> apply
 
 `op run` only injects the state passphrase; provider credentials are read by
 the modules themselves, as ephemeral values that never reach state.
+`github/` uses the GitHub CLI's token instead: run `gh auth login` first.
 
 A credential can only create OAuth clients with scopes and tags it has
 itself, hence the operator's scopes on `tailscale-opentofu`. `tag:k8s-operator`
