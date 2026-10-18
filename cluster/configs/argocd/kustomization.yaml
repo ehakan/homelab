@@ -9,6 +9,7 @@ resources:
   - httproute.yaml
   - grpcroute.yaml
   - admin-password.yaml
+  - repo-creds.yaml
   - https://raw.githubusercontent.com/argoproj/argo-cd/v3.5.5/manifests/install.yaml
 patches:
   - path: argocd-cm.yaml

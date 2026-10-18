@@ -1,0 +1,43 @@
+# Access to ehakan's homelab repos through the GitHub App
+# `ehakan-homelab-argocd` (cluster/README.md, "GitHub App"). A credential
+# template: Argo CD uses it for every repo URL starting with `url`, so
+# homelab, homelab-private and homelab-apps need no Secret of their own. The
+# public homelab repo is read with it too; it also works without, as during
+# bootstrap.
+#
+# The same app's key goes to the Source Hydrator, notifications and GitOps
+# Promoter once they're set up.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: github-app
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: homelab-management
+  target:
+    name: github-app
+    template:
+      engineVersion: v2
+      metadata:
+        labels:
+          argocd.argoproj.io/secret-type: repo-creds
+      data:
+        type: git
+        url: https://github.com/ehakan/homelab
+        githubAppID: "{{ .appID }}"
+        githubAppInstallationID: "{{ .installationID }}"
+        githubAppPrivateKey: "{{ .privateKey }}"
+  data:
+    - secretKey: appID
+      remoteRef:
+        key: argocd-github-app/app-id
+    - secretKey: installationID
+      remoteRef:
+        key: argocd-github-app/installation-id
+    # An SSH Key item's private key comes out as PKCS #8 PEM, which Argo CD
+    # accepts like GitHub's PKCS #1.
+    - secretKey: privateKey
+      remoteRef:
+        key: argocd-github-app/private key

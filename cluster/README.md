@@ -218,6 +218,41 @@ Rotating a token: create a new one, update the 1Password item, delete the
 `onepassword-<vault>` Secret in `external-secrets`, and recreate it with step 3
 of the runbook.
 
+### GitHub App
+
+Argo CD reaches ehakan's GitHub repos (`homelab`, `homelab-private`,
+`homelab-apps`) as the GitHub App `ehakan-homelab-argocd`, for syncing
+([`configs/argocd/repo-creds.yaml`](configs/argocd/repo-creds.yaml)) and, once
+set up, Source Hydrator pushes, notifications (commit statuses, check runs,
+deployments, PR comments) and GitOps Promoter. Repository permissions:
+
+| Permission      | Access         |
+| --------------- | -------------- |
+| Contents        | Read and write |
+| Pull requests   | Read and write |
+| Commit statuses | Read and write |
+| Checks          | Read and write |
+| Deployments     | Read and write |
+| Metadata        | Read (always)  |
+
+No account permissions. At <https://github.com/settings/apps/new>:
+
+1. Name `ehakan-homelab-argocd`. Uncheck Webhook → Active. Set the repository
+   permissions above. Where can this app be installed: Only on this account.
+2. Create, note the App ID, and generate a private key (downloads a `.pem`).
+3. Install App → only select repositories: the three above (add
+   `homelab-apps` once it exists). The installation ID is the number at the
+   end of the URL of the installation's settings page.
+4. In the 1Password app, create an **SSH Key** item `argocd-github-app` in
+   `homelab-management`: Add Private Key → Import a Key File → the `.pem`.
+   Add two text fields, `app-id` and `installation-id`. Then delete the
+   `.pem`. 1Password's SSH agent only offers keys from vaults it's configured
+   for (by default Personal/Private), so this key never ends up in SSH.
+
+Install the app on `homelab` before Argo CD picks up `repo-creds.yaml`: the
+credential template covers the public repo too, and Argo CD stops syncing if
+it's broken.
+
 ## Upgrading a component
 
 - Helm-based apps: bump `targetRevision` in `apps/<name>.yaml`.
