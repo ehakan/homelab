@@ -1,0 +1,28 @@
+# The private repo ehakan/homelab-private: an app-of-apps for its
+# cluster/apps/, like `root` for this one. Read with the GitHub App
+# credentials in configs/argocd/repo-creds.yaml.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: homelab-private
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/ehakan/homelab-private.git
+    targetRevision: main
+    path: cluster/apps
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    # The repo credentials come from an ExternalSecret in the `argocd` app.
+    retry:
+      limit: 10
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 10m

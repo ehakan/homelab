@@ -13,6 +13,7 @@ After the one-time bootstrap below, changes happen only through git: never
 | Application              | Deploys                                                                                                           | Namespace             |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------- | --------------------- |
 | `root`                   | the Applications in `apps/`                                                                                       | `argocd`              |
+| `homelab-private`        | the Applications in [ehakan/homelab-private](https://github.com/ehakan/homelab-private) `cluster/apps/` (private)  | `argocd`              |
 | `argocd`                 | Argo CD v3.5.5 managing itself (kustomize: upstream manifests + patches)                                          | `argocd`              |
 | `cilium`                 | Cilium 1.20.2 (CNI, kube-proxy replacement), LAN LoadBalancer IPs `192.168.11.200–230`                            | `kube-system`         |
 | `gateway-api`            | Gateway API CRDs v1.6.3 (standard channel)                                                                        | cluster-wide          |
