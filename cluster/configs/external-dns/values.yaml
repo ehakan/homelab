@@ -1,0 +1,33 @@
+# Helm values for the external-dns chart (cluster/apps/external-dns.yaml).
+# Defaults: helm show values external-dns --repo https://kubernetes-sigs.github.io/external-dns/ --version <version>
+#
+# Only HTTPRoutes accepted by the `public` Gateway get records: a CNAME to the
+# Gateway's target annotation (home.lab.ehakan.dev, terraform/cloudflare) and
+# an ownership TXT record. Detaching a route from `public` deletes both.
+
+provider:
+  name: cloudflare
+
+env:
+  - name: CF_API_TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: cloudflare-api-token # resources/cloudflare-api-token.yaml
+        key: api-token
+
+sources:
+  - gateway-httproute
+
+gatewayNamespace: gateway
+extraArgs:
+  gateway-name: public
+  # The zone ehakan.dev, looked up by ID: the domain filter below is also
+  # matched against zone names, and `ehakan.dev` doesn't match it.
+  zone-id-filter: 0deef2089c67fcc033f679acac8b48ef
+
+# Records outside lab.ehakan.dev are neither created nor touched.
+domainFilters:
+  - lab.ehakan.dev
+
+policy: sync
+txtOwnerId: homelab

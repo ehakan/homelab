@@ -3,10 +3,15 @@
 # `gateway.lab.ehakan.dev/public: "true"` can attach routes, so nothing
 # becomes public by accident. Routes for public services attach to both
 # Gateways, so at home they're served by `internal`.
+#
+# external-dns gives every route attached here a public CNAME to
+# home.lab.ehakan.dev, the home IP (terraform/cloudflare).
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: public
+  annotations:
+    external-dns.alpha.kubernetes.io/target: home.lab.ehakan.dev
 spec:
   gatewayClassName: agentgateway
   addresses:

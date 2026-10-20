@@ -22,6 +22,7 @@ After the one-time bootstrap below, changes happen only through git: never
 | `cert-manager`           | cert-manager v1.21.2, with Gateway API support, and the Let's Encrypt ClusterIssuers                              | `cert-manager`        |
 | `external-secrets`       | External Secrets Operator 2.12.0 and the 1Password ClusterSecretStores (see [Secrets](#secrets))                  | `external-secrets`    |
 | `gateways`               | The `internal` and `public` Gateways and their certificates (see [Gateways](#gateways))                           | `gateway`             |
+| `external-dns`           | external-dns 0.23.0 (chart 1.23.0): public DNS on Cloudflare for routes on the `public` Gateway                  | `external-dns`        |
 | `tailscale-operator`     | Tailscale operator 1.102.4 and the subnet router for the tailnet                                                  | `tailscale`           |
 | `local-path-provisioner` | local-path-provisioner v0.0.37: default StorageClass `local-path`, volumes on the Talos `local-storage` partition | `local-path-storage`  |
 | `cloudnative-pg`         | CloudNativePG operator 1.30.1 (chart 0.29.1)                                                                      | `cnpg-system`         |
@@ -278,6 +279,19 @@ namespace: gateway, sectionName: https}]` and a hostname under
 `lab.ehakan.dev`. A public one also attaches to `public`, so at home it's
 still served by `internal`. HTTP on port 80 redirects to HTTPS on both.
 
+Public DNS follows the routes: external-dns gives every route attached to
+`public` a CNAME to `home.lab.ehakan.dev`, the home IP (OpenTofu,
+[`terraform/cloudflare`](../terraform/cloudflare)), and deletes it when the
+route detaches. Private names never appear in public DNS.
+
+Both Gateways set `X-Forwarded-Proto` and `X-Forwarded-For` on requests
+([`configs/gateways/forwarded-headers.yaml`](configs/gateways/forwarded-headers.yaml)).
+Apps that need the client's IP trust `X-Forwarded-For` from the pod network,
+`10.244.0.0/16`. The client IP is only real while the `public` pod runs on the
+node announcing `192.168.11.201` (`kubectl -n kube-system get lease
+cilium-l2announce-gateway-public`); otherwise Cilium replaces it with a node
+IP, which apps should not treat as LAN.
+
 Certificates come from Let's Encrypt (`letsencrypt-production`) via DNS-01 on
 Cloudflare, see
 [`configs/gateways/certificates.yaml`](configs/gateways/certificates.yaml).
@@ -285,9 +299,9 @@ Cloudflare, see
 Outside the cluster:
 
 - Router DNS: `*.lab.ehakan.dev` → `192.168.11.200` (manual, router config).
-- Router port-forward: 443 and 80 → `192.168.11.201` (manual, once there's a
-  public service).
-- Public DNS and the Tailscale side: [`terraform/`](../terraform).
+- Router port-forward: 443 and 80 → `192.168.11.201` (manual).
+- `home.lab.ehakan.dev`, the external-dns token and the Tailscale side:
+  [`terraform/`](../terraform).
 
 ## Not set up yet
 

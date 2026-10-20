@@ -1,0 +1,40 @@
+# external-dns: public DNS for routes on the `public` Gateway (Cloudflare),
+# plus its API token (configs/external-dns/resources/). See
+# cluster/README.md#gateways.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: external-dns
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - repoURL: https://kubernetes-sigs.github.io/external-dns/
+      chart: external-dns
+      targetRevision: 1.23.0
+      helm:
+        releaseName: external-dns
+        valueFiles:
+          - $values/cluster/configs/external-dns/values.yaml
+    - repoURL: https://github.com/ehakan/homelab.git
+      targetRevision: main
+      ref: values
+    - repoURL: https://github.com/ehakan/homelab.git
+      targetRevision: main
+      path: cluster/configs/external-dns/resources
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: external-dns
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    # The token's ExternalSecret needs External Secrets' CRDs.
+    retry:
+      limit: 10
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 10m

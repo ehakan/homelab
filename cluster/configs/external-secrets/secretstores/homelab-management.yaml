@@ -12,6 +12,7 @@ spec:
         - argocd
         - cert-manager # Cloudflare token for DNS-01
         - tailscale # operator OAuth client
+        - external-dns # Cloudflare token
         - media # WebUI logins
   provider:
     onepasswordSDK:

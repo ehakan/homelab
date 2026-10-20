@@ -1,11 +1,13 @@
-# agentgateway doesn't send X-Forwarded-Proto to backends (as of v1.6.0), so
-# apps behind TLS-terminating listeners think they're served over plain HTTP
-# and build http:// URLs (authentik's UI then fails on mixed content). Set it
-# on both Gateways; `set` also replaces any value a client sent itself.
+# agentgateway sends neither X-Forwarded-Proto nor X-Forwarded-For to backends
+# (as of v1.6.0). Without them, apps behind TLS-terminating listeners build
+# http:// URLs (authentik's UI then failed on mixed content), and see every
+# client as the gateway pod's IP, which they treat as LAN. Set both on both
+# Gateways; `set` replaces any value a client sent itself, so it can't be
+# spoofed. Apps trust X-Forwarded-For from the pod network, 10.244.0.0/16.
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayPolicy
 metadata:
-  name: forwarded-proto
+  name: forwarded-headers
 spec:
   targetRefs:
     - group: gateway.networking.k8s.io
@@ -17,8 +19,11 @@ spec:
       name: public
       sectionName: https
   traffic:
-    headerModifiers:
+    transformation:
       request:
         set:
+          # CEL expressions.
           - name: X-Forwarded-Proto
-            value: https
+            value: '"https"'
+          - name: X-Forwarded-For
+            value: string(source.address)
