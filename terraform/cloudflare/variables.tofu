@@ -3,9 +3,3 @@ variable "state_passphrase" {
   type        = string
   sensitive   = true
 }
-
-variable "public_ipv4" {
-  description = "Home static public IPv4. The public Gateway is port-forwarded behind it. Unset: no public wildcard record."
-  type        = string
-  default     = null
-}
