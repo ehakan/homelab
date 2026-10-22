@@ -1,0 +1,29 @@
+# Metrics storage: VictoriaMetrics single node, at
+# http://vmsingle-metrics.observability.svc:8428 (Prometheus-compatible query
+# API, remote write, OTLP at /opentelemetry). OTLP metrics keep their
+# OpenTelemetry names and get their resource attributes as labels
+# (`system.memory.usage{k8s.node.name="..."}`); label names with `/` need
+# quotes in queries: `{"k8s.pod.label.app.kubernetes.io/name"="grafana"}`.
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMSingle
+metadata:
+  name: metrics
+spec:
+  retentionPeriod: 30d
+  extraArgs:
+    # No scope.name / scope.version labels on OTLP metrics.
+    opentelemetry.promoteScopeMetadata: "false"
+  storage:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 20Gi
+  nodeSelector:
+    kubernetes.io/hostname: hl-tal-mini-01
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 1Gi

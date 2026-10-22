@@ -1,0 +1,91 @@
+# Grafana at https://grafana.lab.ehakan.dev (internal Gateway), run by the
+# Grafana Operator. No volume: data sources and dashboards are resources in
+# this directory (matched by the `instance: grafana` label), re-applied by the
+# operator after a restart. Admin login `admin`, password in 1Password
+# homelab-management/grafana-admin.
+apiVersion: grafana.integreatly.org/v1beta1
+kind: Grafana
+metadata:
+  name: grafana
+  labels:
+    instance: grafana
+spec:
+  version: 13.2.4
+  # The admin login comes from the grafana-admin Secret below instead of one
+  # the operator generates; the operator reads it from the env vars too.
+  disableDefaultAdminSecret: true
+  config:
+    server:
+      root_url: https://grafana.lab.ehakan.dev
+    users:
+      allow_sign_up: "false"
+    analytics:
+      reporting_enabled: "false"
+      check_for_updates: "false"
+      check_for_plugin_updates: "false"
+    log:
+      mode: console
+  deployment:
+    spec:
+      template:
+        spec:
+          nodeSelector:
+            kubernetes.io/hostname: hl-tal-mini-01
+          containers:
+            - name: grafana
+              env:
+                - name: GF_SECURITY_ADMIN_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: grafana-admin
+                      key: username
+                - name: GF_SECURITY_ADMIN_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: grafana-admin
+                      key: password
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 192Mi
+                limits:
+                  memory: 512Mi
+---
+# Change the password only in 1Password; Grafana picks it up on its next
+# restart.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: grafana-admin
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: homelab-management
+  target:
+    name: grafana-admin
+    template:
+      engineVersion: v2
+      data:
+        username: admin
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: grafana-admin/password
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: grafana
+spec:
+  parentRefs:
+    - name: internal
+      namespace: gateway
+      sectionName: https
+  hostnames:
+    - grafana.lab.ehakan.dev
+  rules:
+    - backendRefs:
+        - name: grafana-service # created by the operator
+          port: 3000

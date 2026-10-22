@@ -1,0 +1,22 @@
+# Log storage: VictoriaLogs single node, at
+# http://vlsingle-logs.observability.svc:9428 (LogsQL, OTLP logs ingestion).
+apiVersion: operator.victoriametrics.com/v1
+kind: VLSingle
+metadata:
+  name: logs
+spec:
+  retentionPeriod: 14d
+  storage:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 20Gi
+  nodeSelector:
+    kubernetes.io/hostname: hl-tal-mini-01
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 512Mi

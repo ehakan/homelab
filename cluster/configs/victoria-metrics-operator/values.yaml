@@ -1,0 +1,43 @@
+# Helm values for the victoria-metrics-operator chart
+# (cluster/apps/victoria-metrics-operator.yaml).
+# Defaults: helm show values victoria-metrics-operator --repo https://victoriametrics.github.io/helm-charts --version <version>
+
+# Full CRDs (the chart's crds/ directory, applied by Argo CD on every sync).
+# The templated default declares no fields, so neither the API server nor
+# `kubectl explain` knows them.
+crds:
+  plain: true
+
+# The OpenTelemetry collector scrapes (its Target Allocator reads
+# ServiceMonitor, PodMonitor, Probe and ScrapeConfig itself), so of the
+# Prometheus Operator resources only PrometheusRule is converted (to VMRule,
+# for vmalert). No vmagent either, so no scrape resources for VMSingle & co.
+extraArgs:
+  controller.disableReconcileFor: ServiceMonitor,PodMonitor,Probe,ScrapeConfig,AlertmanagerConfig
+env:
+  - name: VM_DISABLESELFSERVICESCRAPECREATION
+    value: "true"
+
+operator:
+  # Converted objects (a VMRule per PrometheusRule) are deleted with their
+  # source.
+  enable_converter_ownership: true
+  # They copy their source's Argo CD tracking annotation; these annotations
+  # keep Argo CD from treating them as its own and pruning them.
+  prometheus_converter_add_argocd_ignore_annotations: true
+
+# Webhook certificate from cert-manager. The chart's default generates one at
+# render time, which changes on every Argo CD refresh.
+admissionWebhooks:
+  certManager:
+    enabled: true
+
+nodeSelector:
+  kubernetes.io/hostname: hl-tal-mini-01
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 96Mi
+  limits:
+    memory: 256Mi

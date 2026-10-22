@@ -1,0 +1,38 @@
+# OpenTelemetry Operator: runs the collectors declared in
+# configs/observability/resources/ (OpenTelemetryCollector), and later
+# auto-instrumentation (Instrumentation).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: opentelemetry-operator
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - repoURL: https://open-telemetry.github.io/opentelemetry-helm-charts
+      chart: opentelemetry-operator
+      targetRevision: 0.126.1
+      helm:
+        releaseName: opentelemetry-operator
+        valueFiles:
+          - $values/cluster/configs/opentelemetry-operator/values.yaml
+    - repoURL: https://github.com/ehakan/homelab.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: opentelemetry-operator
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    # The webhook's certificate needs cert-manager's CRDs.
+    retry:
+      limit: 10
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 10m

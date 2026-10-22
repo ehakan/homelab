@@ -1,0 +1,138 @@
+# The node-level OpenTelemetry collector, a DaemonSet:
+#
+# - Usage of the node and of every pod, container and volume on it, from the
+#   kubelet (kubelet_stats receiver), with pod labels as `k8s.pod.label.<key>`.
+# - The host itself (host_metrics receiver, reading the host's root
+#   filesystem): CPU, memory, load, disks, filesystems, network, paging,
+#   processes. Temperatures, pressure and clock sync come from node-exporter
+#   (../node-exporter.yaml) instead.
+#
+# Sent over OTLP to `metrics`, so names stay OpenTelemetry's
+# (`k8s.pod.memory.working_set`, `system.filesystem.usage`). Pod logs are added
+# here later.
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: node
+spec:
+  mode: daemonset
+  image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.161.0
+  # Every node, whatever its taints.
+  tolerations:
+    - operator: Exists
+  # Root: host_metrics needs to stat every mount point.
+  securityContext:
+    runAsUser: 0
+    runAsGroup: 0
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: [ALL]
+  env:
+    - name: K8S_NODE_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName
+    - name: K8S_NODE_IP
+      valueFrom:
+        fieldRef:
+          fieldPath: status.hostIP
+  volumes:
+    - name: hostfs
+      hostPath:
+        path: /
+  volumeMounts:
+    - name: hostfs
+      mountPath: /hostfs
+      readOnly: true
+      mountPropagation: HostToContainer
+  resources:
+    requests:
+      cpu: 30m
+      memory: 96Mi
+    limits:
+      memory: 256Mi
+  config:
+    receivers:
+      kubelet_stats:
+        auth_type: serviceAccount
+        # Node names don't resolve in the cluster; the node's IP does.
+        endpoint: https://${env:K8S_NODE_IP}:10250
+        # Kubelet serving certificates are self-signed on Talos.
+        insecure_skip_verify: true
+        collection_interval: 30s
+        metric_groups: [node, pod, container, volume]
+      host_metrics:
+        root_path: /hostfs
+        collection_interval: 30s
+        scrapers:
+          cpu: {}
+          memory: {}
+          load: {}
+          disk: {}
+          filesystem:
+            exclude_fs_types:
+              match_type: strict
+              fs_types: [autofs, binfmt_misc, bpf, cgroup2, configfs, debugfs, devpts, devtmpfs, fusectl, hugetlbfs, iso9660, mqueue, nsfs, overlay, proc, procfs, pstore, rpc_pipefs, securityfs, selinuxfs, squashfs, sysfs, tmpfs, tracefs]
+            exclude_mount_points:
+              match_type: regexp
+              mount_points: [^/(dev|proc|sys|run)($|/), ^/var/lib/(kubelet|containerd)/]
+          network:
+            # Physical NICs only, not Cilium's and the pods' veths.
+            include:
+              match_type: regexp
+              interfaces: [^en]
+          paging: {}
+          processes: {}
+          system: {}
+    processors:
+      memory_limiter:
+        check_interval: 1s
+        limit_percentage: 80
+        spike_limit_percentage: 20
+      # Pod labels on every pod and container series, as k8s.pod.label.<key>.
+      # Only this node's pods.
+      k8s_attributes:
+        auth_type: serviceAccount
+        filter:
+          node_from_env_var: K8S_NODE_NAME
+        extract:
+          metadata: [k8s.namespace.name, k8s.pod.name]
+          labels:
+            - tag_name: k8s.pod.label.$$1
+              key_regex: (.*)
+              from: pod
+        pod_association:
+          - sources:
+              - from: resource_attribute
+                name: k8s.pod.uid
+      # Resource attributes become labels in VictoriaMetrics; these would only
+      # add churn.
+      resource/trim:
+        attributes:
+          - pattern: ^k8s\..+\.uid$
+            action: delete
+          - key: container.id
+            action: delete
+      # Host metrics don't say which node they're from.
+      resource/node:
+        attributes:
+          - key: k8s.node.name
+            value: ${env:K8S_NODE_NAME}
+            action: upsert
+      batch: {}
+    exporters:
+      otlp_http:
+        endpoint: http://vmsingle-metrics.observability.svc:8428/opentelemetry
+        tls:
+          insecure: true
+    service:
+      pipelines:
+        metrics/kubelet:
+          receivers: [kubelet_stats]
+          processors: [memory_limiter, k8s_attributes, resource/trim, batch]
+          exporters: [otlp_http]
+        metrics/host:
+          receivers: [host_metrics]
+          processors: [memory_limiter, resource/node, batch]
+          exporters: [otlp_http]

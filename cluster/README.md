@@ -10,23 +10,27 @@ After the one-time bootstrap below, changes happen only through git: never
 | [`apps/root.yaml`](apps/root.yaml) | App-of-apps: syncs `apps/`, including itself                         |
 | [`configs/`](configs)              | What the Applications deploy: kustomizations, Helm values, manifests |
 
-| Application              | Deploys                                                                                                           | Namespace             |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------- | --------------------- |
-| `root`                   | the Applications in `apps/`                                                                                       | `argocd`              |
-| `homelab-private`        | the Applications in [ehakan/homelab-private](https://github.com/ehakan/homelab-private) `cluster/apps/` (private)  | `argocd`              |
-| `argocd`                 | Argo CD v3.5.5 managing itself (kustomize: upstream manifests + patches)                                          | `argocd`              |
-| `cilium`                 | Cilium 1.20.2 (CNI, kube-proxy replacement), LAN LoadBalancer IPs `192.168.11.200–230`                            | `kube-system`         |
-| `gateway-api`            | Gateway API CRDs v1.6.3 (standard channel)                                                                        | cluster-wide          |
-| `agentgateway-crds`      | agentgateway's own CRDs, v1.6.0                                                                                   | cluster-wide          |
-| `agentgateway`           | agentgateway v1.6.0, the Gateway API implementation (GatewayClass `agentgateway`)                                 | `agentgateway-system` |
-| `cert-manager`           | cert-manager v1.21.2, with Gateway API support, and the Let's Encrypt ClusterIssuers                              | `cert-manager`        |
-| `external-secrets`       | External Secrets Operator 2.12.0 and the 1Password ClusterSecretStores (see [Secrets](#secrets))                  | `external-secrets`    |
-| `gateways`               | The `internal` and `public` Gateways and their certificates (see [Gateways](#gateways))                           | `gateway`             |
-| `external-dns`           | external-dns 0.23.0 (chart 1.23.0): public DNS on Cloudflare for routes on the `public` Gateway                  | `external-dns`        |
-| `tailscale-operator`     | Tailscale operator 1.102.4 and the subnet router for the tailnet                                                  | `tailscale`           |
-| `local-path-provisioner` | local-path-provisioner v0.0.37: default StorageClass `local-path`, volumes on the Talos `local-storage` partition | `local-path-storage`  |
-| `cloudnative-pg`         | CloudNativePG operator 1.30.1 (chart 0.29.1)                                                                      | `cnpg-system`         |
-| `gpu-operator`            | NVIDIA GPU Operator v26.7.2: device plugin, `nvidia` RuntimeClass (driver and toolkit come from Talos)            | `gpu-operator`         |
+| Application                 | Deploys                                                                                                                       | Namespace                   |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| `root`                      | the Applications in `apps/`                                                                                                   | `argocd`                    |
+| `homelab-private`           | the Applications in [ehakan/homelab-private](https://github.com/ehakan/homelab-private) `cluster/apps/` (private)             | `argocd`                    |
+| `argocd`                    | Argo CD v3.5.5 managing itself (kustomize: upstream manifests + patches)                                                      | `argocd`                    |
+| `cilium`                    | Cilium 1.20.2 (CNI, kube-proxy replacement), LAN LoadBalancer IPs `192.168.11.200–230`                                        | `kube-system`               |
+| `gateway-api`               | Gateway API CRDs v1.6.3 (standard channel)                                                                                    | cluster-wide                |
+| `agentgateway-crds`         | agentgateway's own CRDs, v1.6.0                                                                                               | cluster-wide                |
+| `agentgateway`              | agentgateway v1.6.0, the Gateway API implementation (GatewayClass `agentgateway`)                                             | `agentgateway-system`       |
+| `cert-manager`              | cert-manager v1.21.2, with Gateway API support, and the Let's Encrypt ClusterIssuers                                          | `cert-manager`              |
+| `external-secrets`          | External Secrets Operator 2.12.0 and the 1Password ClusterSecretStores (see [Secrets](#secrets))                              | `external-secrets`          |
+| `gateways`                  | The `internal` and `public` Gateways and their certificates (see [Gateways](#gateways))                                       | `gateway`                   |
+| `external-dns`              | external-dns 0.23.0 (chart 1.23.0): public DNS on Cloudflare for routes on the `public` Gateway                               | `external-dns`              |
+| `tailscale-operator`        | Tailscale operator 1.102.4 and the subnet router for the tailnet                                                              | `tailscale`                 |
+| `local-path-provisioner`    | local-path-provisioner v0.0.37: default StorageClass `local-path`, volumes on the Talos `local-storage` partition             | `local-path-storage`        |
+| `cloudnative-pg`            | CloudNativePG operator 1.30.1 (chart 0.29.1)                                                                                  | `cnpg-system`               |
+| `gpu-operator`              | NVIDIA GPU Operator v26.7.2: device plugin, `nvidia` RuntimeClass (driver and toolkit come from Talos)                        | `gpu-operator`              |
+| `victoria-metrics-operator` | VictoriaMetrics operator v0.75.0 (chart 0.68.1), plus the Prometheus Operator CRDs 0.94.1 (no operator)                       | `victoria-metrics-operator` |
+| `opentelemetry-operator`    | OpenTelemetry Operator 0.161.0 (chart 0.126.1)                                                                                | `opentelemetry-operator`    |
+| `grafana-operator`          | Grafana Operator v5.25.0                                                                                                      | `grafana-operator`          |
+| `observability`             | Storage, the collectors, Grafana 13.2.4, node-exporter (see [Observability](#observability))                                  | `observability`             |
 
 Traffic into the cluster goes through Gateway API (`Gateway`, `HTTPRoute`,
 ...) served by agentgateway. Don't use `Ingress` resources.
@@ -216,6 +220,13 @@ op item create --vault homelab-management --category login --title argocd-admin 
   --url https://argocd.lab.ehakan.dev --generate-password=40,letters,digits username=admin
 ```
 
+Grafana's `admin` password, in `homelab-management`:
+
+```sh
+op item create --vault homelab-management --category login --title grafana-admin \
+  --url https://grafana.lab.ehakan.dev --generate-password=40,letters,digits username=admin
+```
+
 Rotating a token: create a new one, update the 1Password item, delete the
 `onepassword-<vault>` Secret in `external-secrets`, and recreate it with step 3
 of the runbook.
@@ -302,6 +313,52 @@ Outside the cluster:
 - Router port-forward: 443 and 80 → `192.168.11.201` (manual).
 - `home.lab.ehakan.dev`, the external-dns token and the Tailscale side:
   [`terraform/`](../terraform).
+
+## Observability
+
+Metrics and logs in VictoriaMetrics and VictoriaLogs, collected by
+OpenTelemetry collectors and shown in Grafana at
+<https://grafana.lab.ehakan.dev> (`admin`, password in 1Password
+`homelab-management/grafana-admin`). Everything is an operator's resource in
+[`configs/observability/resources/`](configs/observability/resources), and
+everything but the DaemonSets runs on `hl-tal-mini-01`, volumes on its
+`local-storage` partition.
+
+| Piece                              | Resource                                                                       | Notes                                                                                                                         |
+| ---------------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| Metrics storage                    | `VMSingle` `metrics`                                                           | 30 days, 20 Gi; `http://vmsingle-metrics.observability.svc:8428` (Prometheus API, remote write, OTLP)                         |
+| Log storage                        | `VLSingle` `logs`                                                              | 14 days, 20 Gi; `http://vlsingle-logs.observability.svc:9428` (LogsQL, OTLP)                                                  |
+| Kubernetes objects                 | `OpenTelemetryCollector` `cluster` (`k8s_cluster`)                             | pod phases, container states and stuck reasons, restarts, replica counts, node conditions, volume claims, requests and limits |
+| Node, pod and container usage      | `OpenTelemetryCollector` `node`, a DaemonSet (`kubelet_stats`, `host_metrics`) | CPU, memory, filesystems, network, volumes; the host's disks, load, paging, processes                                         |
+| Temperatures, pressure, clock sync | node-exporter, a DaemonSet                                                     | only the `hwmon`, `thermal_zone`, `pressure` and `timex` collectors                                                           |
+| Prometheus-format targets          | the `cluster` collector's Target Allocator                                     | every `ServiceMonitor`, `PodMonitor`, `Probe` and `ScrapeConfig` in the cluster, plus the API server; every 30 s              |
+| Grafana                            | `Grafana` `grafana`, `GrafanaDatasource`s                                      | no volume: the operator re-applies data sources and dashboards after a restart                                                |
+
+Two naming styles, on purpose:
+
+- OpenTelemetry metrics (the receivers above, later apps' OTLP) keep their
+  OpenTelemetry names and get their resource attributes as labels:
+  `k8s.container.restarts{k8s.namespace.name="media", k8s.pod.name="..."}`.
+  Pod labels are `k8s.pod.label.<key>`; label names with `/` need quotes:
+  `{"k8s.pod.label.app.kubernetes.io/name"="grafana"}`.
+- Prometheus-format targets keep their names and labels exactly as exposed
+  (`node_hwmon_temp_celsius{job="node-exporter"}`): they go through Prometheus
+  remote write.
+
+Monitoring an app: turn on its chart's `ServiceMonitor` (or write one). The
+Prometheus Operator's CRDs are installed with the VictoriaMetrics operator
+(`victoria-metrics-operator` app), without the Prometheus Operator itself. The
+VictoriaMetrics operator only converts `PrometheusRule`s (into `VMRule`s, for
+alerting); scraping is the collector's.
+
+The collectors use the `otelcol-contrib` image, the only one with the
+Prometheus remote-write exporter. If they get too heavy, VictoriaMetrics' own
+agents (vmagent, vlagent) can replace them.
+
+Not set up yet: dashboards, logs (pod logs on the `node` collector, events on
+`cluster`), traces (VictoriaTraces, `VTSingle`, shown through Grafana's Tempo
+data source), alerting (`VMAlert`, `VMAlertmanager`, `VMRule`s), etcd,
+scheduler and controller-manager metrics (Talos binds them to localhost).
 
 ## Not set up yet
 

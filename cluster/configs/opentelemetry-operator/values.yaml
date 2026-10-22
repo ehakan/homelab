@@ -1,0 +1,16 @@
+# Helm values for the opentelemetry-operator chart
+# (cluster/apps/opentelemetry-operator.yaml).
+# Defaults: helm show values opentelemetry-operator --repo https://open-telemetry.github.io/opentelemetry-helm-charts --version <version>
+#
+# The webhook certificate comes from cert-manager (chart default).
+
+manager:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+nodeSelector:
+  kubernetes.io/hostname: hl-tal-mini-01

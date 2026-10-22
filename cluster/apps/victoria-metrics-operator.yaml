@@ -1,0 +1,48 @@
+# VictoriaMetrics operator and its CRDs: runs the metrics, logs and traces
+# storage and the alerting declared in configs/observability/resources/, and
+# converts PrometheusRules into VMRules.
+#
+# Also the Prometheus Operator's CRDs, without that operator, so charts can
+# ship their own ServiceMonitors and PrometheusRules. Same app on purpose: the
+# operator only turns on its PrometheusRule converter if the CRD exists when it
+# starts, and Argo CD applies CRDs before the Deployment within one sync.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: victoria-metrics-operator
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: prometheus-operator-crds
+      targetRevision: 32.0.1
+      helm:
+        releaseName: prometheus-operator-crds
+    - repoURL: https://victoriametrics.github.io/helm-charts
+      chart: victoria-metrics-operator
+      targetRevision: 0.68.1
+      helm:
+        releaseName: victoria-metrics-operator
+        valueFiles:
+          - $values/cluster/configs/victoria-metrics-operator/values.yaml
+    - repoURL: https://github.com/ehakan/homelab.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: victoria-metrics-operator
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    # The webhook's certificate needs cert-manager's CRDs.
+    retry:
+      limit: 10
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 10m

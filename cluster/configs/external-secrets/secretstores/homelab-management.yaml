@@ -13,6 +13,7 @@ spec:
         - cert-manager # Cloudflare token for DNS-01
         - tailscale # operator OAuth client
         - external-dns # Cloudflare token
+        - observability # Grafana admin login
         - media # WebUI logins
   provider:
     onepasswordSDK:

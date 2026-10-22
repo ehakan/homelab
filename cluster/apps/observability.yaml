@@ -1,0 +1,46 @@
+# Metrics, logs and Grafana: the resources in configs/observability/resources/
+# (run by the VictoriaMetrics, OpenTelemetry and Grafana operators), plus a
+# stripped-down node-exporter. See cluster/README.md#observability.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: observability
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - repoURL: https://github.com/ehakan/homelab.git
+      targetRevision: main
+      path: cluster/configs/observability/resources
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: prometheus-node-exporter
+      targetRevision: 4.60.0
+      helm:
+        releaseName: node-exporter
+        valueFiles:
+          - $values/cluster/configs/observability/node-exporter.yaml
+    - repoURL: https://github.com/ehakan/homelab.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    # The `node` collector and node-exporter read host paths; Talos enforces
+    # `baseline` by default.
+    managedNamespaceMetadata:
+      labels:
+        pod-security.kubernetes.io/enforce: privileged
+    # Needs the operators' and Prometheus Operator CRDs, and their webhooks.
+    retry:
+      limit: 10
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 10m

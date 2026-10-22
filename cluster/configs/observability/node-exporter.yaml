@@ -1,0 +1,38 @@
+# Helm values for the prometheus-node-exporter chart
+# (cluster/apps/observability.yaml), on every node. Host metrics come from the
+# `node` collector's hostmetrics receiver; this only adds what it lacks:
+# temperatures (hwmon, thermal_zone), pressure stall information (pressure) and
+# clock sync (timex). Reads the host's /proc and /sys only.
+# Defaults: helm show values prometheus-node-exporter --repo https://prometheus-community.github.io/helm-charts --version <version>
+
+# Job name `node-exporter` (taken from the app.kubernetes.io/name label).
+nameOverride: node-exporter
+
+extraArgs:
+  - --collector.disable-defaults
+  - --collector.hwmon
+  - --collector.thermal_zone
+  - --collector.pressure
+  - --collector.timex
+  # No go_* / process_* metrics about node-exporter itself.
+  - --web.disable-exporter-metrics
+
+hostNetwork: false
+hostPID: false
+hostRootFsMount:
+  enabled: false
+
+# Scraped through a ServiceMonitor, read by the `cluster` collector.
+prometheus:
+  monitor:
+    enabled: true
+    relabelings:
+      - sourceLabels: [__meta_kubernetes_pod_node_name]
+        targetLabel: node
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 24Mi
+  limits:
+    memory: 64Mi

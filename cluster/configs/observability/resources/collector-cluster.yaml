@@ -1,0 +1,155 @@
+# The cluster-level OpenTelemetry collector (one replica, mini-01):
+#
+# - Kubernetes object state (k8s_cluster receiver): pod phases, container
+#   states and stuck reasons, restarts, workload replica counts, node
+#   conditions, volume claims, requests and limits. Pod labels are added as
+#   `k8s.pod.label.<key>` (k8s_attributes). Sent over OTLP, so names stay
+#   OpenTelemetry's (`k8s.container.restarts{k8s.pod.name="..."}`).
+# - Prometheus-format targets: its Target Allocator discovers them from the
+#   static scrape configs below plus every ServiceMonitor, PodMonitor, Probe
+#   and ScrapeConfig in the cluster. Sent with Prometheus remote write, which
+#   keeps their names and labels exactly as exposed (`disable_scope_info`
+#   drops the otel_scope_* labels it would add).
+#
+# Contrib image: the only one with the remote-write exporter.
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: cluster
+spec:
+  mode: statefulset
+  replicas: 1
+  image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.161.0
+  nodeSelector:
+    kubernetes.io/hostname: hl-tal-mini-01
+  resources:
+    requests:
+      cpu: 50m
+      memory: 192Mi
+    limits:
+      memory: 512Mi
+  targetAllocator:
+    enabled: true
+    prometheusCR:
+      enabled: true
+      scrapeInterval: 30s
+      # Empty selectors: every resource, in every namespace.
+      serviceMonitorSelector: {}
+      serviceMonitorNamespaceSelector: {}
+      podMonitorSelector: {}
+      podMonitorNamespaceSelector: {}
+      probeSelector: {}
+      probeNamespaceSelector: {}
+      scrapeConfigSelector: {}
+      scrapeConfigNamespaceSelector: {}
+    nodeSelector:
+      kubernetes.io/hostname: hl-tal-mini-01
+    resources:
+      requests:
+        cpu: 20m
+        memory: 64Mi
+      limits:
+        memory: 256Mi
+  config:
+    receivers:
+      k8s_cluster:
+        auth_type: serviceAccount
+        collection_interval: 30s
+        # Every condition comes from k8s.node.condition below; this would add
+        # one more metric per condition.
+        node_conditions_to_report: []
+        allocatable_types_to_report: [cpu, memory, ephemeral-storage, pods]
+        metrics:
+          # Optional (all of this receiver's metrics are in development).
+          k8s.container.status.reason:
+            enabled: true
+          k8s.container.status.state:
+            enabled: true
+          k8s.pod.status_reason:
+            enabled: true
+          k8s.node.condition:
+            enabled: true
+          k8s.persistentvolume.status.phase:
+            enabled: true
+          k8s.persistentvolume.storage.capacity:
+            enabled: true
+          k8s.persistentvolumeclaim.status.phase:
+            enabled: true
+          k8s.persistentvolumeclaim.storage.capacity:
+            enabled: true
+          k8s.persistentvolumeclaim.storage.request:
+            enabled: true
+        resource_attributes:
+          # Why a container last stopped (OOMKilled, Error, ...).
+          k8s.container.status.last_terminated_reason:
+            enabled: true
+      prometheus:
+        config:
+          global:
+            scrape_interval: 30s
+          # Static targets; everything else comes from ServiceMonitors & co.
+          # The Target Allocator runs the discovery, the collector only
+          # scrapes, with its service account's token (collector-rbac.yaml).
+          scrape_configs:
+            # API server: the `kubernetes` Service in `default`.
+            - job_name: apiserver
+              scheme: https
+              kubernetes_sd_configs:
+                - role: endpoints
+                  namespaces:
+                    names: [default]
+              tls_config:
+                ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+              bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+              relabel_configs:
+                - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+                  regex: kubernetes;https
+                  action: keep
+    processors:
+      memory_limiter:
+        check_interval: 1s
+        limit_percentage: 80
+        spike_limit_percentage: 20
+      # Pod labels on every pod and container series, as
+      # k8s.pod.label.<key>.
+      k8s_attributes:
+        auth_type: serviceAccount
+        extract:
+          metadata: [k8s.namespace.name, k8s.pod.name]
+          labels:
+            - tag_name: k8s.pod.label.$$1
+              key_regex: (.*)
+              from: pod
+        pod_association:
+          - sources:
+              - from: resource_attribute
+                name: k8s.pod.uid
+      # Resource attributes become labels in VictoriaMetrics; these would only
+      # add churn.
+      resource/trim:
+        attributes:
+          - pattern: ^k8s\..+\.uid$
+            action: delete
+          - key: container.id
+            action: delete
+      batch: {}
+    exporters:
+      otlp_http:
+        endpoint: http://vmsingle-metrics.observability.svc:8428/opentelemetry
+        tls:
+          insecure: true
+      prometheus_remote_write:
+        endpoint: http://vmsingle-metrics.observability.svc:8428/api/v1/write
+        disable_scope_info: true
+        target_info:
+          enabled: false
+    service:
+      pipelines:
+        metrics/kubernetes:
+          receivers: [k8s_cluster]
+          processors: [memory_limiter, k8s_attributes, resource/trim, batch]
+          exporters: [otlp_http]
+        metrics/prometheus:
+          receivers: [prometheus]
+          processors: [memory_limiter, batch]
+          exporters: [prometheus_remote_write]
