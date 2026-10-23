@@ -193,6 +193,7 @@ spec:
         headers:
           # Otherwise every resource attribute would be one.
           VL-Stream-Fields: k8s.namespace.name
+          VL-Ignore-Fields: scope.*
     service:
       pipelines:
         metrics/kubernetes:

@@ -14,9 +14,11 @@ spec:
         storage: 20Gi
   nodeSelector:
     kubernetes.io/hostname: hl-tal-mini-01
+  # ~200Mi steady; ingesting a backlog (both node collectors catching up at
+  # once) went past 512Mi.
   resources:
     requests:
       cpu: 50m
-      memory: 128Mi
+      memory: 192Mi
     limits:
-      memory: 512Mi
+      memory: 768Mi
