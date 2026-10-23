@@ -4,8 +4,7 @@
 # off), so everything they can do is listed here.
 #
 # Target Allocator: discovers targets and reads the Prometheus Operator
-# resources. No Secrets: monitors that reference one (basic auth, ...) won't
-# work until a namespace is added to prometheusCR.secretNamespaces with a Role.
+# resources. Secrets only in `observability`, below.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -29,6 +28,38 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: otel-cluster-targetallocator
+subjects:
+  - kind: ServiceAccount
+    name: cluster-targetallocator
+    namespace: observability
+---
+# Target Allocator: Secrets in `observability`, its prometheusCR.secretNamespaces
+# default. It always watches Secrets there (metadata only; values only for
+# Secrets a monitor references), and without this logs a "secrets is
+# forbidden" error every few seconds. There's no setting to turn the watch off
+# or narrow it by label, and RBAC can't limit list/watch to some Secrets, so
+# this also lets it read every Secret in `observability` (grafana-admin, ...).
+#
+# TODO: remove this Role and RoleBinding once the error can be handled
+# properly instead: the watch disabled upstream, or the log line dropped in
+# the log pipeline (`filter` processor on the node collector).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: otel-cluster-targetallocator-secrets
+rules:
+  - apiGroups: [""]
+    resources: [secrets]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: otel-cluster-targetallocator-secrets
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: otel-cluster-targetallocator-secrets
 subjects:
   - kind: ServiceAccount
     name: cluster-targetallocator
