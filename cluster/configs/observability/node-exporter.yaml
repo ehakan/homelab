@@ -16,6 +16,7 @@ extraArgs:
   - --collector.timex
   # No go_* / process_* metrics about node-exporter itself.
   - --web.disable-exporter-metrics
+  - --log.format=json
 
 hostNetwork: false
 hostPID: false

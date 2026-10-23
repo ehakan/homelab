@@ -31,3 +31,5 @@ domainFilters:
 
 policy: sync
 txtOwnerId: homelab
+
+logFormat: json

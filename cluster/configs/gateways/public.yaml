@@ -14,6 +14,11 @@ metadata:
     external-dns.kubernetes.io/target: home.lab.ehakan.dev
 spec:
   gatewayClassName: agentgateway
+  infrastructure:
+    parametersRef:
+      group: agentgateway.dev
+      kind: AgentgatewayParameters
+      name: proxy # parameters.yaml
   addresses:
     - type: IPAddress
       value: 192.168.11.201 # configs/cilium/resources/lb-ipam.yaml

@@ -5,11 +5,24 @@ machine:
   certSANs:
     - kube.lan.ehakan.dev
 ---
-# Kubernetes API cert: same DNS name as the cluster endpoint.
+# Kubernetes API cert: same DNS name as the cluster endpoint. JSON logs.
 apiVersion: v1alpha1
 kind: KubeAPIServerConfig
 certExtraSANs:
   - kube.lan.ehakan.dev
+extraArgs:
+  logging-format: json
+---
+# JSON logs, like the API server's.
+apiVersion: v1alpha1
+kind: KubeControllerManagerConfig
+extraArgs:
+  logging-format: json
+---
+apiVersion: v1alpha1
+kind: KubeSchedulerConfig
+extraArgs:
+  logging-format: json
 ---
 # Allow workloads on control plane nodes (removes the default NoSchedule taint).
 apiVersion: v1alpha1

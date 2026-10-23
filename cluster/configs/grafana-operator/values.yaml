@@ -1,6 +1,9 @@
 # Helm values for the grafana-operator chart (cluster/apps/grafana-operator.yaml).
 # Defaults: helm show values oci://ghcr.io/grafana/helm-charts/grafana-operator --version <version>
 
+logging:
+  encoder: json
+
 nodeSelector:
   kubernetes.io/hostname: hl-tal-mini-01
 

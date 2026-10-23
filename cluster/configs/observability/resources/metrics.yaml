@@ -13,6 +13,7 @@ spec:
   extraArgs:
     # No scope.name / scope.version labels on OTLP metrics.
     opentelemetry.promoteScopeMetadata: "false"
+    loggerFormat: json
   storage:
     accessModes:
       - ReadWriteOnce

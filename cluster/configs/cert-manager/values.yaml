@@ -11,3 +11,19 @@ config:
   # HTTPRoute. Needs the Gateway API CRDs (gateway-api app) at startup.
   gatewayAPI:
     enabled: true
+  logging:
+    format: json
+
+webhook:
+  config:
+    apiVersion: webhook.config.cert-manager.io/v1alpha1
+    kind: WebhookConfiguration
+    logging:
+      format: json
+
+cainjector:
+  config:
+    apiVersion: cainjector.config.cert-manager.io/v1alpha1
+    kind: CAInjectorConfiguration
+    logging:
+      format: json

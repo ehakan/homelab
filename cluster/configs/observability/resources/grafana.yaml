@@ -25,6 +25,8 @@ spec:
       check_for_plugin_updates: "false"
     log:
       mode: console
+    log.console:
+      format: json
   deployment:
     spec:
       template:

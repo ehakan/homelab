@@ -57,3 +57,18 @@ l2announcements:
 # operator's subnet router.
 socketLB:
   hostNamespaceOnly: true
+
+# JSON logs: the agent and operator (`log-opt`), and Envoy (its text layout and
+# JSON format are exclusive).
+logOptions:
+  format: json
+envoy:
+  log:
+    format: null
+    format_json:
+      time: "%Y-%m-%dT%T.%eZ"
+      level: "%l"
+      logger: "%n"
+      thread: "%t"
+      source: "%s:%#"
+      message: "%j"

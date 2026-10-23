@@ -195,6 +195,9 @@ spec:
           VL-Stream-Fields: k8s.namespace.name
           VL-Ignore-Fields: scope.*
     service:
+      telemetry:
+        logs:
+          encoding: json
       pipelines:
         metrics/kubernetes:
           receivers: [k8s_cluster]

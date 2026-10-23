@@ -173,6 +173,9 @@ spec:
           # partial-line flag).
           VL-Ignore-Fields: scope.*,log.file.name,logtag
     service:
+      telemetry:
+        logs:
+          encoding: json
       extensions: [file_storage]
       pipelines:
         metrics/kubelet:

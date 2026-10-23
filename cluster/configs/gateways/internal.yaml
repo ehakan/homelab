@@ -7,6 +7,11 @@ metadata:
   name: internal
 spec:
   gatewayClassName: agentgateway
+  infrastructure:
+    parametersRef:
+      group: agentgateway.dev
+      kind: AgentgatewayParameters
+      name: proxy # parameters.yaml
   addresses:
     - type: IPAddress
       value: 192.168.11.200 # configs/cilium/resources/lb-ipam.yaml
