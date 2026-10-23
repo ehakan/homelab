@@ -336,6 +336,27 @@ everything but the DaemonSets runs on `hl-tal-mini-01`, volumes on its
 | Kubernetes events                  | `OpenTelemetryCollector` `cluster` (`k8s_objects`)                             | one log line per event and per repeat (`FailedScheduling`, `BackOff`, `Pulled`, ...)                                          |
 | Grafana                            | `Grafana` `grafana`, `GrafanaDatasource`s                                      | no volume: the operator re-applies data sources and dashboards after a restart                                                |
 
+Every pod's logs and metrics carry, like Datadog's `service`, `env` and
+`version` tags:
+
+| Attribute                     | From                                                                                                                |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `service.name`                | the pod annotation `resource.opentelemetry.io/service.name`                                                         |
+| `service.version`             | the pod's `app.kubernetes.io/version` label, else its image tag (without a digest)                                  |
+| `deployment.environment.name` | `prod`, set by the collectors unless the pod sets its own (`resource.opentelemetry.io/deployment.environment.name`) |
+| `k8s.cluster.name`            | `homelab`, set by the collectors                                                                                    |
+
+Every workload sets the annotation, through its chart's values (usually
+`podAnnotations`), a patch or its manifest. Names are unique in the cluster,
+prefixed where the component's own name is generic (`cert-manager-webhook`,
+`argocd-repo-server`, `otel-node-collector`); no `service.namespace`, the
+Kubernetes namespace is enough. Without the annotation, the collector falls
+back to the `app.kubernetes.io/instance` or `name` label, then the workload's
+name. Set in the collectors instead (`transform/service`): Talos' static pods
+(`kube-apiserver`, `kube-controller-manager`, `kube-scheduler`) and the Target
+Allocator (`otel-target-allocator`). CoreDNS (`coredns`) and the GPU
+operator's own DaemonSets keep their workload names.
+
 Two naming styles, on purpose:
 
 - OpenTelemetry metrics (the receivers above, later apps' OTLP) keep their
@@ -352,11 +373,12 @@ The API server's metrics are an allowlist (`metric_relabel_configs` in
 buckets.
 
 Logs, in Grafana's VictoriaLogs data source (LogsQL). Streams are
-`k8s.namespace.name`, `k8s.pod.name` and `k8s.container.name` for pod logs,
-`k8s.namespace.name` for events; pod labels and everything else are ordinary
-fields:
+`service.name`, `k8s.namespace.name`, `k8s.pod.name` and `k8s.container.name`
+for pod logs, `k8s.namespace.name` for events; pod labels and everything else
+are ordinary fields:
 
 ```text
+{service.name="argocd-repo-server"} error
 {k8s.namespace.name="media"} error
 {k8s.namespace.name="observability"} k8s.pod.label.app:=grafana
 k8s.event.reason:FailedScheduling

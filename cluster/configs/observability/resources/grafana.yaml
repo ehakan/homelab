@@ -30,6 +30,11 @@ spec:
   deployment:
     spec:
       template:
+        metadata:
+          annotations:
+            # Service name in logs and metrics (cluster/README.md,
+            # Observability).
+            resource.opentelemetry.io/service.name: grafana
         spec:
           nodeSelector:
             kubernetes.io/hostname: hl-tal-mini-01

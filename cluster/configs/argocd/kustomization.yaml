@@ -16,6 +16,7 @@ patches:
   - path: argocd-cmd-params-cm.yaml
   - path: argocd-rbac-cm.yaml
   - path: argocd-server-service.yaml
+  - path: service-names.yaml
   # No Dex: Argo CD only uses it when dex.config is set; SSO will go straight
   # to an OIDC provider (oidc.config in argocd-cm.yaml).
   - target:

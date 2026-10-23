@@ -23,6 +23,9 @@ spec:
   mode: statefulset
   replicas: 1
   image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.161.0
+  # Service name in logs and metrics (cluster/README.md, Observability).
+  podAnnotations:
+    resource.opentelemetry.io/service.name: otel-cluster-collector
   nodeSelector:
     kubernetes.io/hostname: hl-tal-mini-01
   resources:
@@ -131,11 +134,12 @@ spec:
         limit_percentage: 80
         spike_limit_percentage: 20
       # Pod labels on every pod and container series, as
-      # k8s.pod.label.<key>.
+      # k8s.pod.label.<key>, and the service, as in the node collector.
       k8s_attributes:
         auth_type: serviceAccount
         extract:
-          metadata: [k8s.namespace.name, k8s.pod.name]
+          otel_annotations: true
+          metadata: [k8s.namespace.name, k8s.pod.name, service.name, service.version]
           labels:
             - tag_name: k8s.pod.label.$$1
               key_regex: (.*)
@@ -144,6 +148,29 @@ spec:
           - sources:
               - from: resource_attribute
                 name: k8s.pod.uid
+      # Service names (cluster/README.md, Observability) where the pod's
+      # annotation can't set one: Talos' static pods (named after their node)
+      # and the Target Allocator (made by the operator, no pod annotations).
+      # Versions: none instead of the Target Allocator's `latest` label, and
+      # no image digest after the tag.
+      transform/service:
+        error_mode: ignore
+        metric_statements: &service
+          - replace_pattern(resource.attributes["service.name"], "^(kube-apiserver|kube-controller-manager|kube-scheduler)-.+$", "$$1") where resource.attributes["k8s.namespace.name"] == "kube-system"
+          - set(resource.attributes["service.name"], "otel-target-allocator") where resource.attributes["k8s.namespace.name"] == "observability" and IsMatch(resource.attributes["k8s.pod.name"], "^cluster-targetallocator-")
+          - delete_key(resource.attributes, "service.version") where resource.attributes["service.version"] == "latest"
+          - replace_pattern(resource.attributes["service.version"], "@sha256:[0-9a-f]+$", "")
+        log_statements: *service
+      # The same on everything from this cluster; an app's own environment
+      # (pod annotation or SDK) wins.
+      resource/cluster:
+        attributes:
+          - key: k8s.cluster.name
+            value: homelab
+            action: upsert
+          - key: deployment.environment.name
+            value: prod
+            action: insert
       # Resource attributes become labels in VictoriaMetrics; these would only
       # add churn.
       resource/trim:
@@ -201,7 +228,7 @@ spec:
       pipelines:
         metrics/kubernetes:
           receivers: [k8s_cluster]
-          processors: [memory_limiter, k8s_attributes, resource/trim, batch]
+          processors: [memory_limiter, k8s_attributes, transform/service, resource/trim, resource/cluster, batch]
           exporters: [otlp_http]
         metrics/prometheus:
           receivers: [prometheus]
@@ -209,5 +236,5 @@ spec:
           exporters: [prometheus_remote_write]
         logs/events:
           receivers: [k8s_objects]
-          processors: [memory_limiter, transform/events, batch]
+          processors: [memory_limiter, transform/events, resource/cluster, batch]
           exporters: [otlp_http/events]

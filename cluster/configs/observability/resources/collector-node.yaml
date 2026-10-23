@@ -25,6 +25,9 @@ spec:
   # reading process's own interfaces, so host_metrics would only see the pod's.
   # (The operator switches DNS to ClusterFirstWithHostNet.)
   hostNetwork: true
+  # Service name in logs and metrics (cluster/README.md, Observability).
+  podAnnotations:
+    resource.opentelemetry.io/service.name: otel-node-collector
   # Every node, whatever its taints.
   tolerations:
     - operator: Exists
@@ -124,8 +127,10 @@ spec:
         check_interval: 1s
         limit_percentage: 80
         spike_limit_percentage: 20
-      # Pod labels on every pod and container series, as k8s.pod.label.<key>.
-      # Only this node's pods.
+      # Pod labels on every pod and container series, as k8s.pod.label.<key>,
+      # and the service: name from the pod's resource.opentelemetry.io/
+      # annotations, version from its app.kubernetes.io/version label or else
+      # the image tag. Only this node's pods.
       k8s_attributes:
         auth_type: serviceAccount
         filter:
@@ -134,7 +139,8 @@ spec:
         # on a restart) goes out without pod labels.
         wait_for_metadata: true
         extract:
-          metadata: [k8s.namespace.name, k8s.pod.name, k8s.node.name]
+          otel_annotations: true
+          metadata: [k8s.namespace.name, k8s.pod.name, k8s.node.name, service.name, service.version]
           labels:
             - tag_name: k8s.pod.label.$$1
               key_regex: (.*)
@@ -143,6 +149,29 @@ spec:
           - sources:
               - from: resource_attribute
                 name: k8s.pod.uid
+      # Service names (cluster/README.md, Observability) where the pod's
+      # annotation can't set one: Talos' static pods (named after their node)
+      # and the Target Allocator (made by the operator, no pod annotations).
+      # Versions: none instead of the Target Allocator's `latest` label, and
+      # no image digest after the tag.
+      transform/service:
+        error_mode: ignore
+        metric_statements: &service
+          - replace_pattern(resource.attributes["service.name"], "^(kube-apiserver|kube-controller-manager|kube-scheduler)-.+$", "$$1") where resource.attributes["k8s.namespace.name"] == "kube-system"
+          - set(resource.attributes["service.name"], "otel-target-allocator") where resource.attributes["k8s.namespace.name"] == "observability" and IsMatch(resource.attributes["k8s.pod.name"], "^cluster-targetallocator-")
+          - delete_key(resource.attributes, "service.version") where resource.attributes["service.version"] == "latest"
+          - replace_pattern(resource.attributes["service.version"], "@sha256:[0-9a-f]+$", "")
+        log_statements: *service
+      # The same on everything from this cluster; an app's own environment
+      # (pod annotation or SDK) wins.
+      resource/cluster:
+        attributes:
+          - key: k8s.cluster.name
+            value: homelab
+            action: upsert
+          - key: deployment.environment.name
+            value: prod
+            action: insert
       # Resource attributes become labels in VictoriaMetrics; these would only
       # add churn.
       resource/trim:
@@ -168,7 +197,7 @@ spec:
         headers:
           # Otherwise every resource attribute, every pod label included,
           # would be one.
-          VL-Stream-Fields: k8s.namespace.name,k8s.pod.name,k8s.container.name
+          VL-Stream-Fields: service.name,k8s.namespace.name,k8s.pod.name,k8s.container.name
           # The same on every line (`unknown` scope, the file name, CRI's
           # partial-line flag).
           VL-Ignore-Fields: scope.*,log.file.name,logtag
@@ -180,13 +209,13 @@ spec:
       pipelines:
         metrics/kubelet:
           receivers: [kubelet_stats]
-          processors: [memory_limiter, k8s_attributes, resource/trim, batch]
+          processors: [memory_limiter, k8s_attributes, transform/service, resource/trim, resource/cluster, batch]
           exporters: [otlp_http]
         metrics/host:
           receivers: [host_metrics]
-          processors: [memory_limiter, resource/node, batch]
+          processors: [memory_limiter, resource/node, resource/cluster, batch]
           exporters: [otlp_http]
         logs/pods:
           receivers: [file_log]
-          processors: [memory_limiter, k8s_attributes, resource/trim, batch]
+          processors: [memory_limiter, k8s_attributes, transform/service, resource/trim, resource/cluster, batch]
           exporters: [otlp_http/logs]

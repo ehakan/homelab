@@ -41,3 +41,8 @@ resources:
     memory: 96Mi
   limits:
     memory: 256Mi
+
+# Service names in logs and metrics (cluster/README.md, Observability).
+# (On every object the chart makes, pods included.)
+annotations:
+  resource.opentelemetry.io/service.name: victoria-metrics-operator

@@ -13,3 +13,7 @@ resources:
     memory: 64Mi
   limits:
     memory: 256Mi
+
+# Service names in logs and metrics (cluster/README.md, Observability).
+podAnnotations:
+  resource.opentelemetry.io/service.name: grafana-operator

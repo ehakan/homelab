@@ -7,9 +7,21 @@ metadata:
   name: subnet-router
 spec:
   hostname: homelab-subnet-router
+  proxyClass: subnet-router
   tags:
     - tag:k8s-subnet-router
   subnetRouter:
     advertiseRoutes:
       - 192.168.11.200/32 # Gateway gateway/internal
       - 192.168.10.1/32 # router (DNS for lab.ehakan.dev)
+---
+# Service name in logs and metrics (cluster/README.md, Observability).
+apiVersion: tailscale.com/v1alpha1
+kind: ProxyClass
+metadata:
+  name: subnet-router
+spec:
+  statefulSet:
+    pod:
+      annotations:
+        resource.opentelemetry.io/service.name: tailscale-subnet-router

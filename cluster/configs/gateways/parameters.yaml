@@ -1,8 +1,30 @@
-# Settings for both Gateways' proxies (spec.infrastructure.parametersRef).
+# Settings for each Gateway's proxies (spec.infrastructure.parametersRef). One
+# per Gateway, for their service names in logs and metrics (cluster/README.md,
+# Observability).
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayParameters
 metadata:
-  name: proxy
+  name: internal
 spec:
   logging:
     format: json
+  deployment:
+    spec:
+      template:
+        metadata:
+          annotations:
+            resource.opentelemetry.io/service.name: gateway-internal
+---
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayParameters
+metadata:
+  name: public
+spec:
+  logging:
+    format: json
+  deployment:
+    spec:
+      template:
+        metadata:
+          annotations:
+            resource.opentelemetry.io/service.name: gateway-public

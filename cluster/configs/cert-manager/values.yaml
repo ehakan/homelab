@@ -15,6 +15,8 @@ config:
     format: json
 
 webhook:
+  podAnnotations:
+    resource.opentelemetry.io/service.name: cert-manager-webhook
   config:
     apiVersion: webhook.config.cert-manager.io/v1alpha1
     kind: WebhookConfiguration
@@ -22,8 +24,17 @@ webhook:
       format: json
 
 cainjector:
+  podAnnotations:
+    resource.opentelemetry.io/service.name: cert-manager-cainjector
   config:
     apiVersion: cainjector.config.cert-manager.io/v1alpha1
     kind: CAInjectorConfiguration
     logging:
       format: json
+
+# Service names in logs and metrics (cluster/README.md, Observability).
+podAnnotations:
+  resource.opentelemetry.io/service.name: cert-manager
+startupapicheck:
+  podAnnotations:
+    resource.opentelemetry.io/service.name: cert-manager-startupapicheck

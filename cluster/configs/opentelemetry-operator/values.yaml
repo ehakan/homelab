@@ -5,6 +5,8 @@
 # The webhook certificate comes from cert-manager (chart default).
 
 manager:
+  podAnnotations:
+    resource.opentelemetry.io/service.name: opentelemetry-operator
   resources:
     requests:
       cpu: 50m

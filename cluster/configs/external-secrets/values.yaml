@@ -1,2 +1,12 @@
 # Helm values for the external-secrets chart (cluster/apps/external-secrets.yaml).
 # Defaults: helm show values external-secrets --repo https://charts.external-secrets.io --version <version>
+
+# Service names in logs and metrics (cluster/README.md, Observability).
+podAnnotations:
+  resource.opentelemetry.io/service.name: external-secrets
+webhook:
+  podAnnotations:
+    resource.opentelemetry.io/service.name: external-secrets-webhook
+certController:
+  podAnnotations:
+    resource.opentelemetry.io/service.name: external-secrets-cert-controller

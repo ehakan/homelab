@@ -33,3 +33,7 @@ policy: sync
 txtOwnerId: homelab
 
 logFormat: json
+
+# Service names in logs and metrics (cluster/README.md, Observability).
+podAnnotations:
+  resource.opentelemetry.io/service.name: external-dns

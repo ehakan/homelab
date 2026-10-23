@@ -6,3 +6,5 @@
 
 operatorConfig:
   hostname: homelab-k8s-operator
+  podAnnotations:
+    resource.opentelemetry.io/service.name: tailscale-operator

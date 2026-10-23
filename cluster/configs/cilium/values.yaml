@@ -40,6 +40,8 @@ gatewayAPI:
   enabled: false
 
 operator:
+  podAnnotations:
+    resource.opentelemetry.io/service.name: cilium-operator
   # Single schedulable node for now; the default (2) leaves one replica pending.
   replicas: 1
   rollOutPods: true
@@ -63,6 +65,8 @@ socketLB:
 logOptions:
   format: json
 envoy:
+  podAnnotations:
+    resource.opentelemetry.io/service.name: cilium-envoy
   log:
     format: null
     format_json:
@@ -72,3 +76,7 @@ envoy:
       thread: "%t"
       source: "%s:%#"
       message: "%j"
+
+# Service names in logs and metrics (cluster/README.md, Observability).
+podAnnotations:
+  resource.opentelemetry.io/service.name: cilium-agent

@@ -15,6 +15,10 @@ spec:
     targetRevision: v1.6.0
     helm:
       releaseName: agentgateway
+      valuesObject:
+        # Service name in logs and metrics (cluster/README.md, Observability).
+        podAnnotations:
+          resource.opentelemetry.io/service.name: agentgateway-controller
   destination:
     server: https://kubernetes.default.svc
     namespace: agentgateway-system

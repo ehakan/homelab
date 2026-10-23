@@ -14,6 +14,10 @@ spec:
     resources:
       requests:
         storage: 20Gi
+  # Service name in logs and metrics (cluster/README.md, Observability).
+  podMetadata:
+    annotations:
+      resource.opentelemetry.io/service.name: victorialogs
   nodeSelector:
     kubernetes.io/hostname: hl-tal-mini-01
   # ~200Mi steady; ingesting a backlog (both node collectors catching up at

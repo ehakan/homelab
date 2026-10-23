@@ -1,0 +1,11 @@
+# Service name in logs and metrics (cluster/README.md, Observability).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: local-path-provisioner
+  namespace: local-path-storage
+spec:
+  template:
+    metadata:
+      annotations:
+        resource.opentelemetry.io/service.name: local-path-provisioner

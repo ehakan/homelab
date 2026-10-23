@@ -7,3 +7,4 @@ patches:
   - path: config.yaml
   - path: namespace.yaml
   - path: storageclass.yaml
+  - path: deployment.yaml

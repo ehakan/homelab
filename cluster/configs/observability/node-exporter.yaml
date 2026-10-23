@@ -37,3 +37,7 @@ resources:
     memory: 24Mi
   limits:
     memory: 64Mi
+
+# Service names in logs and metrics (cluster/README.md, Observability).
+podAnnotations:
+  resource.opentelemetry.io/service.name: node-exporter

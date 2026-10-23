@@ -12,6 +12,9 @@ hostPaths:
   driverInstallDir: /usr/local
 
 operator:
+  # Pod annotations.
+  annotations:
+    resource.opentelemetry.io/service.name: gpu-operator
   # A pre-upgrade hook Job that re-applies the CRDs; Argo CD already applies
   # them from the chart's crds/ on every sync.
   upgradeCRD: false
@@ -22,3 +25,18 @@ dcgmExporter:
   enabled: false
 migManager:
   enabled: false
+
+# Service names in logs and metrics (cluster/README.md, Observability).
+# The operator's own pods (device plugin, feature discovery, validator) take
+# only one set of annotations for all of them (daemonsets.annotations), so
+# they keep their DaemonSet names.
+node-feature-discovery:
+  master:
+    annotations:
+      resource.opentelemetry.io/service.name: nfd-master
+  worker:
+    annotations:
+      resource.opentelemetry.io/service.name: nfd-worker
+  gc:
+    annotations:
+      resource.opentelemetry.io/service.name: nfd-gc
