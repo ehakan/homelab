@@ -378,15 +378,36 @@ for pod logs, `k8s.namespace.name` for events; pod labels and everything else
 are ordinary fields:
 
 ```text
-{service.name="argocd-repo-server"} error
-{k8s.namespace.name="media"} error
+{service.name="argocd-repo-server"} severity_text:=ERROR
+{k8s.namespace.name="media"} timeout
 {k8s.namespace.name="observability"} k8s.pod.label.app:=grafana
 k8s.event.reason:FailedScheduling
-{k8s.namespace.name="observability"} | unpack_json | level:=error
+exception.message:*
 ```
 
-Messages are stored as written: JSON logs are unpacked at query time
-(`unpack_json`).
+The node collector normalizes pod logs (`transform/logs` and
+`transform/severity` in `collector-node.yaml`), like Datadog's remappers:
+
+- The message is the body (`_msg`): `msg`, `message`, CLEF's `@m`, or the
+  text after a known prefix. JSON's other keys become fields under their own
+  names; HTTP access lines without a message get `METHOD host/path status`.
+- The level is `severity_text`, one of `TRACE`, `DEBUG`, `INFO`, `WARN`,
+  `ERROR`, `FATAL` (whatever the app calls them: `Information`, `WRN`, `E`,
+  `notice`...), with `severity_number`. Lines without a recognizable level
+  keep none (`Unspecified`).
+- Errors are `exception.message` and `exception.stacktrace`; CLEF's trace
+  context is the line's `trace_id` and `span_id`; PostgreSQL's database and
+  error code are `db.namespace` and `db.response.status_code`.
+- The time is when the container runtime got the line; the app's own
+  timestamp is dropped.
+- Understood: JSON (logrus, zap, slog, klog, CLEF, Envoy, CloudNativePG),
+  logfmt, and the text of klog, Go's `log`, Python logging, Serilog, winston,
+  consola, Redis, CoreDNS, Envoy and `(N) <time> - msg`. Other text is kept
+  as written. Recognized by shape, so a new app in one of these formats needs
+  nothing.
+- Stack traces: indented lines, exception headers (`System.FooException:
+  ...`, `ValueError: ...`) and `Traceback`/`Caused by` lines are joined to
+  the line before, in every container.
 
 Monitoring an app: turn on its chart's `ServiceMonitor` (or write one). The
 Prometheus Operator's CRDs are installed with the VictoriaMetrics operator

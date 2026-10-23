@@ -10,7 +10,9 @@
 # - Every pod's logs (file_log receiver, the kubelet's files under
 #   /var/log/pods), with the same pod labels, to `logs`. Read positions are
 #   kept on the host (/var/lib/otelcol), so a restart neither repeats nor
-#   skips lines.
+#   skips lines. Stack traces are joined into one line, JSON and known text
+#   formats are parsed: the message as the body, the level as the severity,
+#   everything else as fields.
 #
 # Metrics are sent over OTLP to `metrics`, so names stay OpenTelemetry's
 # (`k8s.pod.memory.working_set`, `system.filesystem.usage`).
@@ -122,11 +124,16 @@ spec:
           # lines, and namespace, pod, UID, container and restart count from
           # the path (log.file.path).
           - type: container
-          # Static pods' paths have their config hash instead of the mirror
-          # pod's UID; without it, k8s_attributes matches them by name.
-          - type: remove
-            field: resource["k8s.pod.uid"]
-            if: 'resource["k8s.pod.uid"] matches "^[0-9a-f]{32}$"'
+          # Multiline entries (stack traces, dumps): indented lines, exception
+          # headers (`System.FooException: ...`, `ValueError: ...`) and the
+          # usual trace markers belong to the line before. Every container,
+          # per file; a last line waits up to force_flush_period.
+          - type: recombine
+            combine_field: body
+            combine_with: "\n"
+            source_identifier: attributes["log.file.path"]
+            overwrite_with: oldest
+            is_first_entry: 'body matches "^\\S" and not (body matches "^(Traceback \\(most recent call last\\):|Caused by: |--- End of )") and not (body matches "^[A-Za-z_][\\w.]*(Exception|Error)(: |$)")'
     processors:
       memory_limiter:
         check_interval: 1s
@@ -154,12 +161,18 @@ spec:
           - sources:
               - from: resource_attribute
                 name: k8s.pod.uid
-          # Static pods' logs (no UID, see file_log).
+          # Static pods' logs (no UID, see transform/static-pods).
           - sources:
               - from: resource_attribute
                 name: k8s.namespace.name
               - from: resource_attribute
                 name: k8s.pod.name
+      # Static pods' log paths have their config hash instead of the mirror
+      # pod's UID; without it, k8s_attributes matches them by name.
+      transform/static-pods:
+        error_mode: ignore
+        log_statements:
+          - delete_key(resource.attributes, "k8s.pod.uid") where IsMatch(resource.attributes["k8s.pod.uid"], "^[0-9a-f]{32}$")
       # Service names (cluster/README.md, Observability) where the pod's
       # annotation can't set one: Talos' static pods (named after their node)
       # and the Target Allocator (made by the operator, no pod annotations).
@@ -197,6 +210,208 @@ spec:
           - key: k8s.node.name
             value: ${env:K8S_NODE_NAME}
             action: upsert
+      # Pod logs as message (body), level (severity_text, made canonical by
+      # transform/severity) and fields (attributes), like Datadog's
+      # remappers. Each group parses or maps one thing. What's parsed so far
+      # is kept on the line itself, in the map attribute `__p`, removed at the
+      # end (the cache is per group, and shared_cache is per batch, not per
+      # line). The app's own timestamp is dropped (the container runtime's
+      # stays); lines in no known format are left as they are.
+      transform/logs:
+        error_mode: ignore
+        log_statements:
+          - context: log
+            statements:
+              - 'set(log.attributes["__p"], {})'
+          # JSON, or logfmt (`level=info msg="..."`). Colors never belong in a
+          # message. Malformed JSON stays as it is, quietly.
+          - context: log
+            error_mode: silent
+            conditions:
+              - IsString(log.body)
+            statements:
+              - 'replace_pattern(log.body, "\\x1b\\[[0-9;]*m", "")'
+              - 'merge_maps(log.attributes["__p"], ParseJSON(log.body), "upsert") where IsMatch(log.body, "^\\s*\\{")'
+              - 'merge_maps(log.attributes["__p"], ParseKeyValue(log.body), "upsert") where Len(log.attributes["__p"]) == 0 and IsMatch(log.body, "^[\\w.]+=") and IsMatch(log.body, "(^| )level=\\w+( |$)") and IsMatch(log.body, "(^| )msg=")'
+              - 'replace_pattern(log.attributes["__p"]["msg"], "\\\\\"", "\"") where IsString(log.attributes["__p"]["msg"]) and IsMatch(log.body, "^[\\w.]+=")'
+
+          # Text formats, by shape: the first that matches (later groups find
+          # `__p` filled) fills `level`, `msg` and its other fields.
+          # klog: `I1023 14:59:14.174956  1 main.go:281] "msg" key="value"`
+          - context: log
+            conditions:
+              - Len(log.attributes["__p"]) == 0 and IsString(log.body)
+            statements:
+              - 'merge_maps(log.attributes["__p"], ExtractPatterns(log.body, "(?s)^(?P<level>[IWEF])\\d{4} \\d{2}:\\d{2}:\\d{2}\\.\\d+\\s+\\d+ (?P<caller>[^\\]]+)\\] (?P<__klog>.*)$"), "upsert")'
+          # Python logging: `2026-10-23 14:59:12,118 - logger (thread) :  INFO (module:line) - msg`
+          - context: log
+            conditions:
+              - Len(log.attributes["__p"]) == 0 and IsString(log.body)
+            statements:
+              - 'merge_maps(log.attributes["__p"], ExtractPatterns(log.body, "(?s)^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2},\\d{3} - (?P<logger>\\S+)\\s+\\((?P<thread>[0-9a-f]+)\\) :\\s+(?P<level>[A-Z]+) \\((?P<module>[^)]+)\\) - (?P<msg>.*)$"), "upsert")'
+          # Python logging: `2026-10-23 17:26:34 INFO     msg`
+          - context: log
+            conditions:
+              - Len(log.attributes["__p"]) == 0 and IsString(log.body)
+            statements:
+              - 'merge_maps(log.attributes["__p"], ExtractPatterns(log.body, "(?s)^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}(?:[.,]\\d+)? (?P<level>DEBUG|INFO|WARNING|ERROR|CRITICAL)\\s+(?P<msg>.*)$"), "upsert")'
+          # Serilog's text template: `[2026-10-22 20:16:55.738 WRN] msg`
+          - context: log
+            conditions:
+              - Len(log.attributes["__p"]) == 0 and IsString(log.body)
+            statements:
+              - 'merge_maps(log.attributes["__p"], ExtractPatterns(log.body, "(?s)^\\[\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)? (?P<level>[A-Z]{3})\\]\\s+(?P<msg>.*)$"), "upsert")'
+          # winston: `2026-10-23T14:05:00.009Z [debug][Component]: msg`
+          - context: log
+            conditions:
+              - Len(log.attributes["__p"]) == 0 and IsString(log.body)
+            statements:
+              - 'merge_maps(log.attributes["__p"], ExtractPatterns(log.body, "(?s)^\\d{4}-\\d{2}-\\d{2}T[\\d:.]+Z \\[(?P<level>\\w+)\\]\\[(?P<component>[^\\]]*)\\]: (?P<msg>.*)$"), "upsert")'
+          # consola: `INFO  [15:17:01.408]: msg`
+          - context: log
+            conditions:
+              - Len(log.attributes["__p"]) == 0 and IsString(log.body)
+            statements:
+              - 'merge_maps(log.attributes["__p"], ExtractPatterns(log.body, "(?s)^(?P<level>[A-Z]+)\\s+\\[\\d{2}:\\d{2}:\\d{2}\\.\\d{3}\\]: ?(?P<msg>.*)$"), "upsert")'
+          # One letter in parentheses: `(N) 2026-10-22T17:44:00 - msg`
+          - context: log
+            conditions:
+              - Len(log.attributes["__p"]) == 0 and IsString(log.body)
+            statements:
+              - 'merge_maps(log.attributes["__p"], ExtractPatterns(log.body, "(?s)^\\((?P<level>[NIWC])\\) \\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2} - (?P<msg>.*)$"), "upsert")'
+          # Redis: `1:C 23 Oct 2026 17:30:32.818 * msg` (level `.` `-` `*` `#`)
+          - context: log
+            conditions:
+              - Len(log.attributes["__p"]) == 0 and IsString(log.body)
+            statements:
+              - 'merge_maps(log.attributes["__p"], ExtractPatterns(log.body, "(?s)^\\d+:[XCSM] \\d{2} \\w{3} \\d{4} [\\d:.]+ (?P<level>[.*#-]) (?P<msg>.*)$"), "upsert")'
+          # CoreDNS: `[INFO] plugin/reload: msg`
+          - context: log
+            conditions:
+              - Len(log.attributes["__p"]) == 0 and IsString(log.body)
+            statements:
+              - 'merge_maps(log.attributes["__p"], ExtractPatterns(log.body, "(?s)^\\[(?P<level>INFO|WARNING|ERROR|DEBUG|FATAL)\\] (?P<msg>.*)$"), "upsert")'
+          # Envoy: `[2026-10-23 15:00:06.451][7][warning][config] [file.cc:189] msg`
+          - context: log
+            conditions:
+              - Len(log.attributes["__p"]) == 0 and IsString(log.body)
+            statements:
+              - 'merge_maps(log.attributes["__p"], ExtractPatterns(log.body, "(?s)^\\[\\d{4}-\\d{2}-\\d{2} [\\d:.]+\\]\\[\\d+\\]\\[(?P<level>\\w+)\\]\\[(?P<logger>[^\\]]+)\\] \\[(?P<source>[^\\]]+)\\] (?P<msg>.*)$"), "upsert")'
+          # Go's log package: `[name: ]2026/10/23 14:04:28 msg`
+          - context: log
+            conditions:
+              - Len(log.attributes["__p"]) == 0 and IsString(log.body)
+            statements:
+              - 'merge_maps(log.attributes["__p"], ExtractPatterns(log.body, "(?s)^(?:(?P<logger>[\\w-]+): )?\\d{4}/\\d{2}/\\d{2} \\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)? (?P<__golog>.*)$"), "upsert")'
+
+          # klog's message: `"msg" key="value" ...` (structured) or plain.
+          - context: log
+            error_mode: silent
+            conditions:
+              - log.attributes["__p"]["__klog"] != nil
+            statements:
+              - 'merge_maps(log.attributes["__p"], ExtractPatterns(log.attributes["__p"]["__klog"], "(?s)^\"(?P<msg>(?:[^\"\\\\]|\\\\.)*)\"(?: (?P<__kv>.+))?$"), "upsert")'
+              - 'replace_pattern(log.attributes["__p"]["msg"], "\\\\\"", "\"") where log.attributes["__p"]["msg"] != nil'
+              - 'set(log.attributes["__p"]["__kvmap"], ParseKeyValue(log.attributes["__p"]["__kv"])) where log.attributes["__p"]["__kv"] != nil and log.attributes["__p"]["__kv"] != ""'
+              - 'merge_maps(log.attributes["__p"], log.attributes["__p"]["__kvmap"], "insert") where log.attributes["__p"]["__kvmap"] != nil'
+              # Unparsable pairs stay in the message.
+              - 'set(log.attributes["__p"]["msg"], Concat([log.attributes["__p"]["msg"], log.attributes["__p"]["__kv"]], " ")) where log.attributes["__p"]["__kvmap"] == nil and log.attributes["__p"]["__kv"] != nil and log.attributes["__p"]["__kv"] != ""'
+              - 'set(log.attributes["__p"]["msg"], log.attributes["__p"]["__klog"]) where log.attributes["__p"]["msg"] == nil'
+          # Go's log has a level only as a `WARNING:` (...) prefix.
+          - context: log
+            conditions:
+              - log.attributes["__p"]["__golog"] != nil
+            statements:
+              - 'merge_maps(log.attributes["__p"], ExtractPatterns(log.attributes["__p"]["__golog"], "(?s)^(?P<level>DEBUG|INFO|WARNING|ERROR): ?(?P<msg>.*)$"), "upsert")'
+              - 'set(log.attributes["__p"]["msg"], log.attributes["__p"]["__golog"]) where log.attributes["__p"]["msg"] == nil'
+              - 'set(log.attributes["__p"]["level"], "info") where log.attributes["__p"]["level"] == nil'
+              - 'delete_key(log.attributes["__p"], "logger") where log.attributes["__p"]["logger"] == ""'
+
+          # CloudNativePG's PostgreSQL lines: the record inside is the line.
+          - context: log
+            conditions:
+              - log.attributes["__p"]["logger"] == "postgres" and IsMap(log.attributes["__p"]["record"])
+            statements:
+              - 'set(log.attributes["__p"]["msg"], log.attributes["__p"]["record"]["message"]) where log.attributes["__p"]["record"]["message"] != nil'
+              - 'set(log.attributes["__p"]["level"], log.attributes["__p"]["record"]["error_severity"]) where log.attributes["__p"]["record"]["error_severity"] != nil'
+              - 'set(log.attributes["db.namespace"], log.attributes["__p"]["record"]["database_name"]) where log.attributes["__p"]["record"]["database_name"] != nil'
+              - 'set(log.attributes["db.response.status_code"], log.attributes["__p"]["record"]["sql_state_code"]) where log.attributes["__p"]["record"]["sql_state_code"] != nil and log.attributes["__p"]["record"]["sql_state_code"] != "00000"'
+              - 'delete_matching_keys(log.attributes["__p"]["record"], "^(message|error_severity|database_name|sql_state_code)$")'
+          # klog's JSON has no level: error if it has `err` and no `v`.
+          - context: log
+            conditions:
+              - log.attributes["__p"]["level"] == nil and log.attributes["__p"]["caller"] != nil and log.attributes["__p"]["ts"] != nil
+            statements:
+              - 'set(log.attributes["__p"]["level"], "error") where log.attributes["__p"]["v"] == nil and log.attributes["__p"]["err"] != nil'
+              - 'set(log.attributes["__p"]["level"], "info") where log.attributes["__p"]["level"] == nil'
+          # CLEF (Serilog, NLog): no level means Information; the rendered
+          # message, else the template; the exception; the trace context.
+          - context: log
+            conditions:
+              - log.attributes["__p"]["@t"] != nil
+            statements:
+              - 'set(log.attributes["__p"]["level"], log.attributes["__p"]["@l"]) where log.attributes["__p"]["@l"] != nil'
+              - 'set(log.attributes["__p"]["level"], "Information") where log.attributes["__p"]["level"] == nil'
+              - 'set(log.attributes["__p"]["msg"], log.attributes["__p"]["@m"]) where log.attributes["__p"]["@m"] != nil'
+              - 'set(log.attributes["__p"]["msg"], log.attributes["__p"]["@mt"]) where log.attributes["__p"]["msg"] == nil and log.attributes["__p"]["@mt"] != nil'
+              - 'set(log.attributes["__p"]["stacktrace"], log.attributes["__p"]["@x"]) where log.attributes["__p"]["@x"] != nil'
+              - 'set(log.trace_id.string, log.attributes["__p"]["@tr"]) where log.attributes["__p"]["@tr"] != nil'
+              - 'set(log.span_id.string, log.attributes["__p"]["@sp"]) where log.attributes["__p"]["@sp"] != nil'
+          # The other usual names. HTTP access lines have no message: `GET
+          # host/path 200`.
+          - context: log
+            conditions:
+              - Len(log.attributes["__p"]) > 0
+            statements:
+              - 'set(log.attributes["__p"]["level"], log.attributes["__p"]["lvl"]) where log.attributes["__p"]["level"] == nil and log.attributes["__p"]["lvl"] != nil'
+              - 'set(log.attributes["__p"]["level"], log.attributes["__p"]["severity"]) where log.attributes["__p"]["level"] == nil and IsString(log.attributes["__p"]["severity"])'
+              - 'set(log.attributes["__p"]["msg"], log.attributes["__p"]["message"]) where log.attributes["__p"]["msg"] == nil and log.attributes["__p"]["message"] != nil'
+              - 'set(log.attributes["__p"]["msg"], Concat([log.attributes["__p"]["http.method"], " ", log.attributes["__p"]["http.host"], log.attributes["__p"]["http.path"], " ", log.attributes["__p"]["http.status"]], "")) where log.attributes["__p"]["msg"] == nil and log.attributes["__p"]["http.method"] != nil'
+
+          # A message found: it's the body, the level the severity, errors
+          # are exception.*, the rest (minus the app's timestamp) fields.
+          - context: log
+            conditions:
+              - log.attributes["__p"]["msg"] != nil
+            statements:
+              - 'replace_pattern(log.attributes["__p"]["msg"], "^\\s+", "") where IsString(log.attributes["__p"]["msg"])'
+              - 'set(log.body, log.attributes["__p"]["msg"])'
+              - 'set(log.severity_text, log.attributes["__p"]["level"]) where IsString(log.attributes["__p"]["level"])'
+              - 'set(log.attributes["exception.message"], log.attributes["__p"]["err"]) where log.attributes["__p"]["err"] != nil'
+              - 'set(log.attributes["exception.message"], log.attributes["__p"]["error"]) where log.attributes["__p"]["error"] != nil'
+              - 'set(log.attributes["exception.stacktrace"], log.attributes["__p"]["stacktrace"]) where log.attributes["__p"]["stacktrace"] != nil'
+              # The collectors' own JSON repeats their resource.
+              - 'delete_key(log.attributes["__p"], "resource") where IsMap(log.attributes["__p"]["resource"]) and log.attributes["__p"]["resource"]["service.instance.id"] != nil'
+              - 'delete_matching_keys(log.attributes["__p"], "^(__.*|level|lvl|severity|@l|msg|message|@m|@mt|err|error|stacktrace|@x|@tr|@sp|time|ts|timestamp|t|@t|logging_pod)$")'
+              - 'merge_maps(log.attributes, log.attributes["__p"], "insert")'
+          - context: log
+            statements:
+              - 'delete_key(log.attributes, "__p")'
+      # Canonical level names (what Grafana recognizes) and their numbers,
+      # whatever the app called them. Unknown names stay as they are, without
+      # a number.
+      transform/severity:
+        error_mode: ignore
+        log_statements:
+          - context: log
+            error_mode: silent
+            conditions:
+              - log.severity_text != ""
+            statements:
+              - |-
+                set(log.severity_text, ParseSeverity(ToLowerCase(log.severity_text), {
+                  "TRACE": [{"equals": ["trace", "verbose", "vrb"]}],
+                  "DEBUG": [{"equals": ["debug", "dbg", "debug1", "debug2", "debug3", "debug4", "debug5", ".", "-"]}],
+                  "INFO": [{"equals": ["info", "information", "inf", "notice", "log", "i", "n", "*"]}],
+                  "WARN": [{"equals": ["warn", "warning", "wrn", "w", "#"]}],
+                  "ERROR": [{"equals": ["error", "err", "e"]}],
+                  "FATAL": [{"equals": ["fatal", "ftl", "critical", "crit", "panic", "dpanic", "f", "c"]}]}))
+              - set(log.severity_number, SEVERITY_NUMBER_TRACE) where log.severity_text == "TRACE"
+              - set(log.severity_number, SEVERITY_NUMBER_DEBUG) where log.severity_text == "DEBUG"
+              - set(log.severity_number, SEVERITY_NUMBER_INFO) where log.severity_text == "INFO"
+              - set(log.severity_number, SEVERITY_NUMBER_WARN) where log.severity_text == "WARN"
+              - set(log.severity_number, SEVERITY_NUMBER_ERROR) where log.severity_text == "ERROR"
+              - set(log.severity_number, SEVERITY_NUMBER_FATAL) where log.severity_text == "FATAL"
       batch: {}
     exporters:
       otlp_http:
@@ -228,5 +443,5 @@ spec:
           exporters: [otlp_http]
         logs/pods:
           receivers: [file_log]
-          processors: [memory_limiter, k8s_attributes, transform/service, resource/trim, resource/cluster, batch]
+          processors: [memory_limiter, transform/static-pods, k8s_attributes, transform/service, resource/trim, resource/cluster, transform/logs, transform/severity, batch]
           exporters: [otlp_http/logs]

@@ -186,9 +186,11 @@ spec:
       transform/events:
         error_mode: ignore
         log_statements:
-          - set(log.severity_text, log.body["object"]["type"])
-          - set(log.severity_number, SEVERITY_NUMBER_WARN) where log.severity_text == "Warning"
-          - set(log.severity_number, SEVERITY_NUMBER_INFO) where log.severity_text == "Normal"
+          # Canonical level names, as for pod logs.
+          - set(log.severity_number, SEVERITY_NUMBER_WARN) where log.body["object"]["type"] == "Warning"
+          - set(log.severity_text, "WARN") where log.body["object"]["type"] == "Warning"
+          - set(log.severity_number, SEVERITY_NUMBER_INFO) where log.body["object"]["type"] == "Normal"
+          - set(log.severity_text, "INFO") where log.body["object"]["type"] == "Normal"
           - set(log.attributes["k8s.event.reason"], log.body["object"]["reason"])
           - set(log.attributes["k8s.event.action"], log.body["object"]["action"]) where log.body["object"]["action"] != nil
           - set(log.attributes["k8s.event.count"], log.body["object"]["deprecatedCount"]) where log.body["object"]["deprecatedCount"] != nil
