@@ -27,6 +27,12 @@ spec:
       mode: console
     log.console:
       format: json
+    # Otherwise, on every start, Grafana "updates" the core data sources it
+    # ships (Prometheus, Tempo...) in place, in the image's read-only plugin
+    # directory: the old version is stopped, the new one can't be written,
+    # and the data source type is gone.
+    plugins:
+      preinstall_auto_update: "false"
   deployment:
     spec:
       template:
