@@ -122,6 +122,11 @@ spec:
           # lines, and namespace, pod, UID, container and restart count from
           # the path (log.file.path).
           - type: container
+          # Static pods' paths have their config hash instead of the mirror
+          # pod's UID; without it, k8s_attributes matches them by name.
+          - type: remove
+            field: resource["k8s.pod.uid"]
+            if: 'resource["k8s.pod.uid"] matches "^[0-9a-f]{32}$"'
     processors:
       memory_limiter:
         check_interval: 1s
@@ -149,8 +154,7 @@ spec:
           - sources:
               - from: resource_attribute
                 name: k8s.pod.uid
-          # Static pods: their log paths have the config hash, not the
-          # mirror pod's UID.
+          # Static pods' logs (no UID, see file_log).
           - sources:
               - from: resource_attribute
                 name: k8s.namespace.name
