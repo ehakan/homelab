@@ -358,7 +358,7 @@ fields:
 
 ```text
 {k8s.namespace.name="media"} error
-{k8s.namespace.name="media"} "k8s.pod.label.app.kubernetes.io/name":=jellyfin
+{k8s.namespace.name="observability"} k8s.pod.label.app:=grafana
 k8s.event.reason:FailedScheduling
 {k8s.namespace.name="observability"} | unpack_json | level:=error
 ```
