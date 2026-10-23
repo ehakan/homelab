@@ -10,6 +10,9 @@
 #   and ScrapeConfig in the cluster. Sent with Prometheus remote write, which
 #   keeps their names and labels exactly as exposed (`disable_scope_info`
 #   drops the otel_scope_* labels it would add).
+# - Kubernetes events (k8s_objects receiver) to `logs`, one log line per event
+#   and per repeat: the event's note as the message, its reason, type and
+#   object as fields.
 #
 # Contrib image: the only one with the remote-write exporter.
 apiVersion: opentelemetry.io/v1beta1
@@ -83,6 +86,14 @@ spec:
           # Why a container last stopped (OOMKilled, Error, ...).
           k8s.container.status.last_terminated_reason:
             enabled: true
+      k8s_objects:
+        auth_type: serviceAccount
+        objects:
+          - name: events
+            group: events.k8s.io
+            mode: watch
+            # Deletions are only events expiring (after an hour).
+            exclude_watch_type: [DELETED]
       prometheus:
         config:
           global:
@@ -95,16 +106,25 @@ spec:
             - job_name: apiserver
               scheme: https
               kubernetes_sd_configs:
-                - role: endpoints
+                - role: endpointslice
                   namespaces:
                     names: [default]
               tls_config:
                 ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
               bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
               relabel_configs:
-                - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+                - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpointslice_port_name]
                   regex: kubernetes;https
                   action: keep
+              # Only these. Everything it exposes is ~95k series, almost all
+              # histogram buckets; this is ~2.6k. Latency is the SLI
+              # histogram's sum and count (averages); its buckets, for
+              # percentiles, would add ~10k.
+              metric_relabel_configs:
+                - source_labels: [__name__]
+                  action: keep
+                  regex: >-
+                    apiserver_request_total|apiserver_request_sli_duration_seconds_(sum|count)|apiserver_current_inflight_requests|apiserver_flowcontrol_current_inflight_requests|apiserver_flowcontrol_rejected_requests_total|apiserver_admission_webhook_rejection_count|apiserver_admission_webhook_admission_duration_seconds_(sum|count)|apiserver_resource_objects|apiserver_storage_size_bytes|etcd_requests_total|etcd_request_errors_total|apiserver_client_certificate_expiration_seconds_(bucket|count)|process_.+|go_goroutines|go_memstats_heap_inuse_bytes
     processors:
       memory_limiter:
         check_interval: 1s
@@ -132,6 +152,31 @@ spec:
             action: delete
           - key: container.id
             action: delete
+      # The receiver's log body is the whole watch event ({type, object});
+      # this keeps what's worth searching. The namespace is already a resource
+      # attribute. Kubernetes' own repeat count rises with each MODIFIED event,
+      # which is a new log line too.
+      transform/events:
+        error_mode: ignore
+        log_statements:
+          - set(log.severity_text, log.body["object"]["type"])
+          - set(log.severity_number, SEVERITY_NUMBER_WARN) where log.severity_text == "Warning"
+          - set(log.severity_number, SEVERITY_NUMBER_INFO) where log.severity_text == "Normal"
+          - set(log.attributes["k8s.event.reason"], log.body["object"]["reason"])
+          - set(log.attributes["k8s.event.action"], log.body["object"]["action"]) where log.body["object"]["action"] != nil
+          - set(log.attributes["k8s.event.count"], log.body["object"]["deprecatedCount"]) where log.body["object"]["deprecatedCount"] != nil
+          - set(log.attributes["k8s.event.count"], log.body["object"]["series"]["count"]) where log.body["object"]["series"] != nil
+          - set(log.attributes["k8s.event.controller"], log.body["object"]["reportingController"]) where log.body["object"]["reportingController"] != nil and log.body["object"]["reportingController"] != ""
+          - set(log.attributes["k8s.event.controller"], log.body["object"]["deprecatedSource"]["component"]) where log.attributes["k8s.event.controller"] == nil and log.body["object"]["deprecatedSource"] != nil
+          - set(log.attributes["k8s.object.kind"], log.body["object"]["regarding"]["kind"])
+          - set(log.attributes["k8s.object.name"], log.body["object"]["regarding"]["name"])
+          - set(log.attributes["k8s.object.field_path"], log.body["object"]["regarding"]["fieldPath"]) where log.body["object"]["regarding"]["fieldPath"] != nil
+          - delete_key(log.attributes, "event.domain")
+          - delete_key(log.attributes, "k8s.resource.name")
+          - set(log.time, log.observed_time)
+          # Last: the body is the event until here.
+          - set(log.body, log.body["object"]["note"]) where log.body["object"]["note"] != nil and log.body["object"]["note"] != ""
+          - set(log.body, log.attributes["k8s.event.reason"]) where IsMap(log.body)
       batch: {}
     exporters:
       otlp_http:
@@ -143,6 +188,11 @@ spec:
         disable_scope_info: true
         target_info:
           enabled: false
+      otlp_http/events:
+        logs_endpoint: http://vlsingle-logs.observability.svc:9428/insert/opentelemetry/v1/logs
+        headers:
+          # Otherwise every resource attribute would be one.
+          VL-Stream-Fields: k8s.namespace.name
     service:
       pipelines:
         metrics/kubernetes:
@@ -153,3 +203,7 @@ spec:
           receivers: [prometheus]
           processors: [memory_limiter, batch]
           exporters: [prometheus_remote_write]
+        logs/events:
+          receivers: [k8s_objects]
+          processors: [memory_limiter, transform/events, batch]
+          exporters: [otlp_http/events]

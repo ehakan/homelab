@@ -11,7 +11,7 @@ metadata:
   name: otel-cluster-targetallocator
 rules:
   - apiGroups: [""]
-    resources: [pods, nodes, services, endpoints, namespaces, configmaps]
+    resources: [pods, nodes, services, namespaces, configmaps]
     verbs: [get, list, watch]
   - apiGroups: [discovery.k8s.io]
     resources: [endpointslices]
@@ -65,8 +65,8 @@ subjects:
     name: cluster-targetallocator
     namespace: observability
 ---
-# `cluster` collector: reads Kubernetes objects (k8s_cluster, k8s_attributes)
-# and scrapes the API server's /metrics.
+# `cluster` collector: reads Kubernetes objects (k8s_cluster, k8s_attributes),
+# watches events (k8s_objects) and scrapes the API server's /metrics.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -92,6 +92,9 @@ rules:
   - apiGroups: [autoscaling]
     resources: [horizontalpodautoscalers]
     verbs: [get, list, watch]
+  - apiGroups: [events.k8s.io]
+    resources: [events]
+    verbs: [list, watch]
   - nonResourceURLs: [/metrics]
     verbs: [get]
 ---

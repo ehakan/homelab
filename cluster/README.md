@@ -332,6 +332,8 @@ everything but the DaemonSets runs on `hl-tal-mini-01`, volumes on its
 | Node, pod and container usage      | `OpenTelemetryCollector` `node`, a DaemonSet (`kubelet_stats`, `host_metrics`) | CPU, memory, filesystems, network, volumes; the host's disks, load, paging, processes                                         |
 | Temperatures, pressure, clock sync | node-exporter, a DaemonSet                                                     | only the `hwmon`, `thermal_zone`, `pressure` and `timex` collectors                                                           |
 | Prometheus-format targets          | the `cluster` collector's Target Allocator                                     | every `ServiceMonitor`, `PodMonitor`, `Probe` and `ScrapeConfig` in the cluster, plus the API server; every 30 s              |
+| Pod logs                           | `OpenTelemetryCollector` `node` (`file_log`)                                   | every container's stdout and stderr, from the kubelet's files; read positions in `/var/lib/otelcol` on each node              |
+| Kubernetes events                  | `OpenTelemetryCollector` `cluster` (`k8s_objects`)                             | one log line per event and per repeat (`FailedScheduling`, `BackOff`, `Pulled`, ...)                                          |
 | Grafana                            | `Grafana` `grafana`, `GrafanaDatasource`s                                      | no volume: the operator re-applies data sources and dashboards after a restart                                                |
 
 Two naming styles, on purpose:
@@ -345,6 +347,25 @@ Two naming styles, on purpose:
   (`node_hwmon_temp_celsius{job="node-exporter"}`): they go through Prometheus
   remote write.
 
+The API server's metrics are an allowlist (`metric_relabel_configs` in
+`collector-cluster.yaml`): it exposes ~95k series, almost all histogram
+buckets.
+
+Logs, in Grafana's VictoriaLogs data source (LogsQL). Streams are
+`k8s.namespace.name`, `k8s.pod.name` and `k8s.container.name` for pod logs,
+`k8s.namespace.name` for events; pod labels and everything else are ordinary
+fields:
+
+```text
+{k8s.namespace.name="media"} error
+{k8s.namespace.name="media"} "k8s.pod.label.app.kubernetes.io/name":=jellyfin
+k8s.event.reason:FailedScheduling
+{k8s.namespace.name="observability"} | unpack_json | level:=error
+```
+
+Messages are stored as written: JSON logs are unpacked at query time
+(`unpack_json`).
+
 Monitoring an app: turn on its chart's `ServiceMonitor` (or write one). The
 Prometheus Operator's CRDs are installed with the VictoriaMetrics operator
 (`victoria-metrics-operator` app), without the Prometheus Operator itself. The
@@ -355,10 +376,10 @@ The collectors use the `otelcol-contrib` image, the only one with the
 Prometheus remote-write exporter. If they get too heavy, VictoriaMetrics' own
 agents (vmagent, vlagent) can replace them.
 
-Not set up yet: dashboards, logs (pod logs on the `node` collector, events on
-`cluster`), traces (VictoriaTraces, `VTSingle`, shown through Grafana's Tempo
-data source), alerting (`VMAlert`, `VMAlertmanager`, `VMRule`s), etcd,
-scheduler and controller-manager metrics (Talos binds them to localhost).
+Not set up yet: dashboards, traces (VictoriaTraces, `VTSingle`, shown through
+Grafana's Tempo data source), alerting (`VMAlert`, `VMAlertmanager`,
+`VMRule`s), etcd, scheduler and controller-manager metrics (Talos binds them
+to localhost), Talos' own service logs (`machine.logging`).
 
 ## Not set up yet
 

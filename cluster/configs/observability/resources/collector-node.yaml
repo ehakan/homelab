@@ -7,9 +7,13 @@
 #   processes. Temperatures, pressure and clock sync come from node-exporter
 #   (../node-exporter.yaml) instead.
 #
-# Sent over OTLP to `metrics`, so names stay OpenTelemetry's
-# (`k8s.pod.memory.working_set`, `system.filesystem.usage`). Pod logs are added
-# here later.
+# - Every pod's logs (file_log receiver, the kubelet's files under
+#   /var/log/pods), with the same pod labels, to `logs`. Read positions are
+#   kept on the host (/var/lib/otelcol), so a restart neither repeats nor
+#   skips lines.
+#
+# Metrics are sent over OTLP to `metrics`, so names stay OpenTelemetry's
+# (`k8s.pod.memory.working_set`, `system.filesystem.usage`).
 apiVersion: opentelemetry.io/v1beta1
 kind: OpenTelemetryCollector
 metadata:
@@ -45,18 +49,27 @@ spec:
     - name: hostfs
       hostPath:
         path: /
+    - name: state
+      hostPath:
+        path: /var/lib/otelcol
+        type: DirectoryOrCreate
   volumeMounts:
     - name: hostfs
       mountPath: /hostfs
       readOnly: true
       mountPropagation: HostToContainer
+    - name: state
+      mountPath: /var/lib/otelcol
   resources:
     requests:
       cpu: 30m
-      memory: 96Mi
+      memory: 128Mi
     limits:
       memory: 256Mi
   config:
+    extensions:
+      file_storage:
+        directory: /var/lib/otelcol
     receivers:
       kubelet_stats:
         auth_type: serviceAccount
@@ -89,6 +102,20 @@ spec:
           paging: {}
           processes: {}
           system: {}
+      file_log:
+        include: [/hostfs/var/log/pods/*/*/*.log]
+        # Its own, so that failing to send logs can't feed on itself.
+        exclude: [/hostfs/var/log/pods/observability_node-collector-*/*/*.log]
+        # Files already there on the very first start too; after that, the
+        # saved positions decide.
+        start_at: beginning
+        storage: file_storage
+        include_file_path: true
+        operators:
+          # The kubelet's CRI format: timestamp, stream, rejoined partial
+          # lines, and namespace, pod, UID, container and restart count from
+          # the path (log.file.path).
+          - type: container
     processors:
       memory_limiter:
         check_interval: 1s
@@ -101,7 +128,7 @@ spec:
         filter:
           node_from_env_var: K8S_NODE_NAME
         extract:
-          metadata: [k8s.namespace.name, k8s.pod.name]
+          metadata: [k8s.namespace.name, k8s.pod.name, k8s.node.name]
           labels:
             - tag_name: k8s.pod.label.$$1
               key_regex: (.*)
@@ -130,7 +157,14 @@ spec:
         endpoint: http://vmsingle-metrics.observability.svc:8428/opentelemetry
         tls:
           insecure: true
+      otlp_http/logs:
+        logs_endpoint: http://vlsingle-logs.observability.svc:9428/insert/opentelemetry/v1/logs
+        headers:
+          # Otherwise every resource attribute, every pod label included,
+          # would be one.
+          VL-Stream-Fields: k8s.namespace.name,k8s.pod.name,k8s.container.name
     service:
+      extensions: [file_storage]
       pipelines:
         metrics/kubelet:
           receivers: [kubelet_stats]
@@ -140,3 +174,7 @@ spec:
           receivers: [host_metrics]
           processors: [memory_limiter, resource/node, batch]
           exporters: [otlp_http]
+        logs/pods:
+          receivers: [file_log]
+          processors: [memory_limiter, k8s_attributes, resource/trim, batch]
+          exporters: [otlp_http/logs]
