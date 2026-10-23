@@ -149,6 +149,13 @@ spec:
           - sources:
               - from: resource_attribute
                 name: k8s.pod.uid
+          # Static pods: their log paths have the config hash, not the
+          # mirror pod's UID.
+          - sources:
+              - from: resource_attribute
+                name: k8s.namespace.name
+              - from: resource_attribute
+                name: k8s.pod.name
       # Service names (cluster/README.md, Observability) where the pod's
       # annotation can't set one: Talos' static pods (named after their node)
       # and the Target Allocator (made by the operator, no pod annotations).
