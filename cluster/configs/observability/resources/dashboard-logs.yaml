@@ -1,0 +1,439 @@
+# Logs dashboard: every pod's logs and Kubernetes events, filtered by
+# service, namespace, level and free LogsQL; volume by level and by service,
+# errors by service. Edit in Grafana, then paste the JSON model here: Grafana
+# is stateless, the operator re-applies this.
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: logs
+spec:
+  instanceSelector:
+    matchLabels:
+      instance: grafana
+  json: |
+    {
+      "uid": "logs",
+      "title": "Logs",
+      "tags": [
+        "logs"
+      ],
+      "timezone": "utc",
+      "refresh": "30s",
+      "time": {
+        "from": "now-1h",
+        "to": "now"
+      },
+      "schemaVersion": 41,
+      "editable": true,
+      "graphTooltip": 1,
+      "description": "Every pod's logs and Kubernetes events in VictoriaLogs, filtered by service, namespace, level and LogsQL. Normalized by the node collector (cluster/README.md, Observability).",
+      "templating": {
+        "list": [
+          {
+            "name": "service",
+            "label": "Service",
+            "type": "query",
+            "datasource": {
+              "type": "victoriametrics-logs-datasource",
+              "uid": "victorialogs"
+            },
+            "query": {
+              "type": "fieldValue",
+              "field": "service.name",
+              "query": "*",
+              "limit": 1000,
+              "refId": "service"
+            },
+            "regex": "/^.+$/",
+            "sort": 1,
+            "refresh": 2,
+            "multi": true,
+            "includeAll": true,
+            "allValue": ".*",
+            "current": {
+              "text": [
+                "All"
+              ],
+              "value": [
+                "$__all"
+              ]
+            }
+          },
+          {
+            "name": "namespace",
+            "label": "Namespace",
+            "type": "query",
+            "datasource": {
+              "type": "victoriametrics-logs-datasource",
+              "uid": "victorialogs"
+            },
+            "query": {
+              "type": "fieldValue",
+              "field": "k8s.namespace.name",
+              "query": "*",
+              "limit": 1000,
+              "refId": "namespace"
+            },
+            "regex": "/^.+$/",
+            "sort": 1,
+            "refresh": 2,
+            "multi": true,
+            "includeAll": true,
+            "allValue": ".*",
+            "current": {
+              "text": [
+                "All"
+              ],
+              "value": [
+                "$__all"
+              ]
+            }
+          },
+          {
+            "name": "severity",
+            "label": "Level",
+            "type": "custom",
+            "query": "FATAL,ERROR,WARN,INFO,DEBUG,TRACE,Unspecified",
+            "multi": true,
+            "includeAll": true,
+            "allValue": ".*",
+            "current": {
+              "text": [
+                "All"
+              ],
+              "value": [
+                "$__all"
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "label": "LogsQL",
+            "type": "textbox",
+            "query": "",
+            "current": {
+              "text": "",
+              "value": ""
+            },
+            "description": "Words or any LogsQL filter, e.g. timeout, exception.message:*, k8s.pod.name:~\"^grafana\""
+          }
+        ]
+      },
+      "panels": [
+        {
+          "id": 1,
+          "type": "timeseries",
+          "title": "Volume by level",
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 8
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "victoriametrics-logs-datasource",
+                "uid": "victorialogs"
+              },
+              "queryType": "statsRange",
+              "editorMode": "code",
+              "expr": "service.name:~\"^${service:regex}$\" k8s.namespace.name:~\"^${namespace:regex}$\" severity_text:~\"^${severity:regex}$\" ${search} | stats by (severity_text) count() as lines"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "drawStyle": "bars",
+                "fillOpacity": 80,
+                "lineWidth": 1,
+                "stacking": {
+                  "mode": "normal",
+                  "group": "A"
+                },
+                "barAlignment": 0,
+                "showPoints": "never"
+              },
+              "displayName": "${__field.labels.severity_text}",
+              "unit": "short"
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "FATAL"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "purple"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "ERROR"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "red"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "WARN"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "orange"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "INFO"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "green"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "DEBUG"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "blue"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "TRACE"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "text"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Unspecified"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "text"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          }
+        },
+        {
+          "id": 2,
+          "type": "timeseries",
+          "title": "Volume by service",
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 0,
+            "w": 12,
+            "h": 8
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "victoriametrics-logs-datasource",
+                "uid": "victorialogs"
+              },
+              "queryType": "statsRange",
+              "editorMode": "code",
+              "expr": "service.name:~\"^${service:regex}$\" k8s.namespace.name:~\"^${namespace:regex}$\" severity_text:~\"^${severity:regex}$\" ${search} | rename service.name as service | stats by (service) count() as lines"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "drawStyle": "bars",
+                "fillOpacity": 80,
+                "lineWidth": 1,
+                "stacking": {
+                  "mode": "normal",
+                  "group": "A"
+                },
+                "barAlignment": 0,
+                "showPoints": "never"
+              },
+              "displayName": "${__field.labels.service}",
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "right",
+              "showLegend": true,
+              "calcs": [
+                "sum"
+              ],
+              "sortBy": "Total",
+              "sortDesc": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          }
+        },
+        {
+          "id": 3,
+          "type": "bargauge",
+          "title": "Errors by service",
+          "description": "ERROR and FATAL lines in the time range.",
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 8,
+            "w": 6,
+            "h": 20
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "victoriametrics-logs-datasource",
+                "uid": "victorialogs"
+              },
+              "queryType": "stats",
+              "editorMode": "code",
+              "expr": "service.name:~\"^${service:regex}$\" k8s.namespace.name:~\"^${namespace:regex}$\" severity_text:in(\"ERROR\",\"FATAL\") ${search} | rename service.name as service | stats by (service) count() as errors | sort by (errors desc) | limit 20"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "displayName": "${__field.labels.service}",
+              "color": {
+                "mode": "fixed",
+                "fixedColor": "red"
+              },
+              "unit": "short",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "orientation": "horizontal",
+            "displayMode": "basic",
+            "valueMode": "text",
+            "showUnfilled": true,
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            }
+          }
+        },
+        {
+          "id": 4,
+          "type": "logs",
+          "title": "Logs",
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          },
+          "gridPos": {
+            "x": 6,
+            "y": 8,
+            "w": 18,
+            "h": 20
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "victoriametrics-logs-datasource",
+                "uid": "victorialogs"
+              },
+              "queryType": "instant",
+              "editorMode": "code",
+              "expr": "service.name:~\"^${service:regex}$\" k8s.namespace.name:~\"^${namespace:regex}$\" severity_text:~\"^${severity:regex}$\" ${search}",
+              "maxLines": 1000
+            }
+          ],
+          "options": {
+            "showTime": true,
+            "wrapLogMessage": true,
+            "enableLogDetails": true,
+            "sortOrder": "Descending",
+            "dedupStrategy": "none",
+            "prettifyLogMessage": false,
+            "showCommonLabels": false,
+            "showLabels": false,
+            "enableInfiniteScrolling": true
+          }
+        }
+      ]
+    }

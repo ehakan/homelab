@@ -419,10 +419,12 @@ The collectors use the `otelcol-contrib` image, the only one with the
 Prometheus remote-write exporter. If they get too heavy, VictoriaMetrics' own
 agents (vmagent, vlagent) can replace them.
 
-Not set up yet: dashboards, traces (VictoriaTraces, `VTSingle`, shown through
-Grafana's Tempo data source), alerting (`VMAlert`, `VMAlertmanager`,
-`VMRule`s), etcd, scheduler and controller-manager metrics (Talos binds them
-to localhost), Talos' own service logs (`machine.logging`).
+Dashboards: `Logs` (`dashboard-logs.yaml`: every pod's logs and events, by
+service, namespace, level and LogsQL). Not set up yet: other dashboards,
+traces (VictoriaTraces, `VTSingle`, shown through Grafana's Tempo data
+source), alerting (`VMAlert`, `VMAlertmanager`, `VMRule`s), etcd, scheduler
+and controller-manager metrics (Talos binds them to localhost), Talos' own
+service logs (`machine.logging`).
 
 ## Not set up yet
 
