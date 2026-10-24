@@ -374,7 +374,7 @@ spec:
             conditions:
               - log.attributes["__p"]["msg"] != nil
             statements:
-              - 'replace_pattern(log.attributes["__p"]["msg"], "^\\s+", "") where IsString(log.attributes["__p"]["msg"])'
+              - 'replace_pattern(log.attributes["__p"]["msg"], "^\\s+|\\s+$", "") where IsString(log.attributes["__p"]["msg"])'
               - 'set(log.body, log.attributes["__p"]["msg"])'
               - 'set(log.severity_text, log.attributes["__p"]["level"]) where IsString(log.attributes["__p"]["level"])'
               - 'set(log.attributes["exception.message"], log.attributes["__p"]["err"]) where log.attributes["__p"]["err"] != nil'
@@ -387,6 +387,12 @@ spec:
           - context: log
             statements:
               - 'delete_key(log.attributes, "__p")'
+      # Lines without a message once parsed (spacer lines like `INFO  [..]:`,
+      # blank lines): VictoriaLogs would store a placeholder message instead.
+      filter/empty-logs:
+        error_mode: ignore
+        log_conditions:
+          - IsString(log.body) and IsMatch(log.body, "^\\s*$")
       # Canonical level names (what Grafana recognizes) and their numbers,
       # whatever the app called them. Unknown names stay as they are, without
       # a number.
@@ -443,5 +449,5 @@ spec:
           exporters: [otlp_http]
         logs/pods:
           receivers: [file_log]
-          processors: [memory_limiter, transform/static-pods, k8s_attributes, transform/service, resource/trim, resource/cluster, transform/logs, transform/severity, batch]
+          processors: [memory_limiter, transform/static-pods, k8s_attributes, transform/service, resource/trim, resource/cluster, transform/logs, filter/empty-logs, transform/severity, batch]
           exporters: [otlp_http/logs]
