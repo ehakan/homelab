@@ -279,12 +279,6 @@ spec:
               - Len(log.attributes["__p"]) == 0 and IsString(log.body)
             statements:
               - 'merge_maps(log.attributes["__p"], ExtractPatterns(log.body, "(?s)^\\((?P<level>[NIWC])\\) \\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2} - (?P<msg>.*)$"), "upsert")'
-          # Redis: `1:C 23 Oct 2026 17:30:32.818 * msg` (level `.` `-` `*` `#`)
-          - context: log
-            conditions:
-              - Len(log.attributes["__p"]) == 0 and IsString(log.body)
-            statements:
-              - 'merge_maps(log.attributes["__p"], ExtractPatterns(log.body, "(?s)^\\d+:[XCSM] \\d{2} \\w{3} \\d{4} [\\d:.]+ (?P<level>[.*#-]) (?P<msg>.*)$"), "upsert")'
           # CoreDNS: `[INFO] plugin/reload: msg`
           - context: log
             conditions:
@@ -357,14 +351,12 @@ spec:
               - 'set(log.attributes["__p"]["stacktrace"], log.attributes["__p"]["@x"]) where log.attributes["__p"]["@x"] != nil'
               - 'set(log.trace_id.string, log.attributes["__p"]["@tr"]) where log.attributes["__p"]["@tr"] != nil'
               - 'set(log.span_id.string, log.attributes["__p"]["@sp"]) where log.attributes["__p"]["@sp"] != nil'
-          # The other usual names. HTTP access lines have no message: `GET
+          # `message` for the message. HTTP access lines have no message: `GET
           # host/path 200`.
           - context: log
             conditions:
               - Len(log.attributes["__p"]) > 0
             statements:
-              - 'set(log.attributes["__p"]["level"], log.attributes["__p"]["lvl"]) where log.attributes["__p"]["level"] == nil and log.attributes["__p"]["lvl"] != nil'
-              - 'set(log.attributes["__p"]["level"], log.attributes["__p"]["severity"]) where log.attributes["__p"]["level"] == nil and IsString(log.attributes["__p"]["severity"])'
               - 'set(log.attributes["__p"]["msg"], log.attributes["__p"]["message"]) where log.attributes["__p"]["msg"] == nil and log.attributes["__p"]["message"] != nil'
               - 'set(log.attributes["__p"]["msg"], Concat([log.attributes["__p"]["http.method"], " ", log.attributes["__p"]["http.host"], log.attributes["__p"]["http.path"], " ", log.attributes["__p"]["http.status"]], "")) where log.attributes["__p"]["msg"] == nil and log.attributes["__p"]["http.method"] != nil'
 
@@ -382,7 +374,7 @@ spec:
               - 'set(log.attributes["exception.stacktrace"], log.attributes["__p"]["stacktrace"]) where log.attributes["__p"]["stacktrace"] != nil'
               # The collectors' own JSON repeats their resource.
               - 'delete_key(log.attributes["__p"], "resource") where IsMap(log.attributes["__p"]["resource"]) and log.attributes["__p"]["resource"]["service.instance.id"] != nil'
-              - 'delete_matching_keys(log.attributes["__p"], "^(__.*|level|lvl|severity|@l|msg|message|@m|@mt|err|error|stacktrace|@x|@tr|@sp|time|ts|timestamp|t|@t|logging_pod)$")'
+              - 'delete_matching_keys(log.attributes["__p"], "^(__.*|level|@l|msg|message|@m|@mt|err|error|stacktrace|@x|@tr|@sp|time|ts|timestamp|t|@t|logging_pod)$")'
               - 'merge_maps(log.attributes, log.attributes["__p"], "insert")'
           - context: log
             statements:
@@ -407,9 +399,9 @@ spec:
               - |-
                 set(log.severity_text, ParseSeverity(ToLowerCase(log.severity_text), {
                   "TRACE": [{"equals": ["trace", "verbose", "vrb"]}],
-                  "DEBUG": [{"equals": ["debug", "dbg", "debug1", "debug2", "debug3", "debug4", "debug5", ".", "-"]}],
-                  "INFO": [{"equals": ["info", "information", "inf", "notice", "log", "i", "n", "*"]}],
-                  "WARN": [{"equals": ["warn", "warning", "wrn", "w", "#"]}],
+                  "DEBUG": [{"equals": ["debug", "dbg", "debug1", "debug2", "debug3", "debug4", "debug5"]}],
+                  "INFO": [{"equals": ["info", "information", "inf", "notice", "log", "i", "n"]}],
+                  "WARN": [{"equals": ["warn", "warning", "wrn", "w"]}],
                   "ERROR": [{"equals": ["error", "err", "e"]}],
                   "FATAL": [{"equals": ["fatal", "ftl", "critical", "crit", "panic", "dpanic", "f", "c"]}]}))
               - set(log.severity_number, SEVERITY_NUMBER_TRACE) where log.severity_text == "TRACE"
