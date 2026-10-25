@@ -1,0 +1,14 @@
+# Valkey instead of Redis, for JSON logs (redis-args.yaml); Redis has no
+# structured log format. Argo CD only uses GET/SET/DEL/RENAME/SCAN/PUBLISH/
+# SUBSCRIBE, all in Valkey; the image's entrypoint runs valkey-server for the
+# upstream args.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-redis
+spec:
+  template:
+    spec:
+      containers:
+        - name: redis
+          image: docker.io/valkey/valkey:9.1.2-alpine

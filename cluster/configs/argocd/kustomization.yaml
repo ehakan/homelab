@@ -5,21 +5,29 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: argocd
 resources:
-  - namespace.yaml
-  - httproute.yaml
-  - grpcroute.yaml
-  - admin-password.yaml
-  - repo-creds.yaml
+  - resources/namespace.yaml
+  - resources/httproute.yaml
+  - resources/grpcroute.yaml
+  - resources/admin-password.yaml
+  - resources/repo-creds.yaml
   - https://raw.githubusercontent.com/argoproj/argo-cd/v3.5.5/manifests/install.yaml
 patches:
-  - path: argocd-cm.yaml
-  - path: argocd-cmd-params-cm.yaml
-  - path: argocd-rbac-cm.yaml
-  - path: argocd-server-service.yaml
-  - path: service-names.yaml
-  - path: redis.yaml
+  - path: patches/argocd-cm.yaml
+  - path: patches/argocd-cmd-params-cm.yaml
+  - path: patches/argocd-rbac-cm.yaml
+  - path: patches/argocd-server-service.yaml
+  - path: patches/service-names.yaml
+  - path: patches/redis-image.yaml
+  - path: patches/redis-args.yaml
+    target:
+      kind: Deployment
+      name: argocd-redis
+  - path: patches/logformat.yaml
+    target:
+      kind: Deployment|StatefulSet
+      name: argocd-(server|repo-server|application-controller|applicationset-controller|notifications-controller)
   # No Dex: Argo CD only uses it when dex.config is set; SSO will go straight
-  # to an OIDC provider (oidc.config in argocd-cm.yaml).
+  # to an OIDC provider (oidc.config in patches/argocd-cm.yaml).
   - target:
       name: argocd-dex-server.*
     patch: |

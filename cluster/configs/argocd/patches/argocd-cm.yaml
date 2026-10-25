@@ -5,10 +5,10 @@ kind: ConfigMap
 metadata:
   name: argocd-cm
 data:
-  # Served by the internal Gateway (httproute.yaml).
+  # Served by the internal Gateway (resources/httproute.yaml).
   url: https://argocd.lab.ehakan.dev
   # Local `admin` login until there's an identity provider. Password:
-  # 1Password homelab-management/argocd-admin (admin-password.yaml).
+  # 1Password homelab-management/argocd-admin (resources/admin-password.yaml).
   admin.enabled: "true"
   # No shell into pods from the UI.
   exec.enabled: "false"

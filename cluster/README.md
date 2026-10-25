@@ -150,7 +150,7 @@ kubectl -n cert-manager rollout restart deployment/cert-manager
 Once `gateways` is synced, Argo CD is at <https://argocd.lab.ehakan.dev> (LAN
 and tailnet), for the UI and the CLI. Log in as `admin`, password from the
 1Password item `argocd-admin` in `homelab-management`
-([`configs/argocd/admin-password.yaml`](configs/argocd/admin-password.yaml)):
+([`configs/argocd/resources/admin-password.yaml`](configs/argocd/resources/admin-password.yaml)):
 
 ```sh
 argocd login argocd.lab.ehakan.dev --username admin \
@@ -235,9 +235,10 @@ of the runbook.
 
 Argo CD reaches ehakan's GitHub repos (`homelab`, `homelab-private`,
 `homelab-apps`) as the GitHub App `ehakan-homelab-argocd`, for syncing
-([`configs/argocd/repo-creds.yaml`](configs/argocd/repo-creds.yaml)) and, once
-set up, Source Hydrator pushes, notifications (commit statuses, check runs,
-deployments, PR comments) and GitOps Promoter. Repository permissions:
+([`configs/argocd/resources/repo-creds.yaml`](configs/argocd/resources/repo-creds.yaml))
+and, once set up, Source Hydrator pushes, notifications (commit statuses,
+check runs, deployments, PR comments) and GitOps Promoter. Repository
+permissions:
 
 | Permission      | Access         |
 | --------------- | -------------- |

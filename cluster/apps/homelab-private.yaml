@@ -1,6 +1,6 @@
 # The private repo ehakan/homelab-private: an app-of-apps for its
 # cluster/apps/, like `root` for this one. Read with the GitHub App
-# credentials in configs/argocd/repo-creds.yaml.
+# credentials in configs/argocd/resources/repo-creds.yaml.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:

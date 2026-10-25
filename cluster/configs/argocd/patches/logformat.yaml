@@ -1,0 +1,9 @@
+# JSON logs from the Argo CD components, appended to the upstream args. JSON
+# is already their default; explicit so a default change upstream doesn't
+# switch them to text. Each of these workloads has one container.
+- op: add
+  path: /spec/template/spec/containers/0/args/-
+  value: --logformat
+- op: add
+  path: /spec/template/spec/containers/0/args/-
+  value: json

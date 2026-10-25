@@ -1,0 +1,16 @@
+# JSON logs from Valkey (redis-image.yaml), appended to the upstream args.
+- op: test
+  path: /spec/template/spec/containers/0/name
+  value: redis
+- op: add
+  path: /spec/template/spec/containers/0/args/-
+  value: --log-format
+- op: add
+  path: /spec/template/spec/containers/0/args/-
+  value: json
+- op: add
+  path: /spec/template/spec/containers/0/args/-
+  value: --log-timestamp-format
+- op: add
+  path: /spec/template/spec/containers/0/args/-
+  value: iso8601
