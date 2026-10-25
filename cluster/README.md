@@ -415,9 +415,8 @@ The node collector normalizes pod logs (`transform/logs` and
   timestamp is dropped.
 - Understood: JSON (logrus, zap, slog, klog, CLEF, Envoy, CloudNativePG),
   logfmt, and the text of klog, Go's `log`, Python logging, Serilog, winston,
-  consola, CoreDNS, Envoy and `(N) <time> - msg`. Other text is kept as
-  written. Recognized by shape, so a new app in one of these formats needs
-  nothing.
+  consola, Envoy and `(N) <time> - msg`. Other text is kept as written.
+  Recognized by shape, so a new app in one of these formats needs nothing.
 - Stack traces: indented lines, exception headers (`System.FooException:
   ...`, `ValueError: ...`) and `Traceback`/`Caused by` lines are joined to
   the line before, in every container.

@@ -279,12 +279,6 @@ spec:
               - Len(log.attributes["__p"]) == 0 and IsString(log.body)
             statements:
               - 'merge_maps(log.attributes["__p"], ExtractPatterns(log.body, "(?s)^\\((?P<level>[NIWC])\\) \\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2} - (?P<msg>.*)$"), "upsert")'
-          # CoreDNS: `[INFO] plugin/reload: msg`
-          - context: log
-            conditions:
-              - Len(log.attributes["__p"]) == 0 and IsString(log.body)
-            statements:
-              - 'merge_maps(log.attributes["__p"], ExtractPatterns(log.body, "(?s)^\\[(?P<level>INFO|WARNING|ERROR|DEBUG|FATAL)\\] (?P<msg>.*)$"), "upsert")'
           # Envoy: `[2026-10-23 15:00:06.451][7][warning][config] [file.cc:189] msg`
           - context: log
             conditions:
