@@ -1,0 +1,22 @@
+# Cluster DNS (CoreDNS), in place of the one Talos deploys by default.
+# Bootstrapped by hand before Argo CD (cluster/README.md).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: coredns
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/ehakan/homelab.git
+    targetRevision: main
+    path: cluster/configs/coredns
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true

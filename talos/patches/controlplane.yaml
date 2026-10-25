@@ -36,3 +36,10 @@ taints:
 apiVersion: v1alpha1
 kind: KubeProxyConfig
 enabled: false
+---
+# No CoreDNS from Talos: Argo CD runs it (cluster/configs/coredns), with
+# flags Talos can't set. The objects Talos created are out of its bootstrap
+# manifests inventory, so `talosctl upgrade-k8s` doesn't prune them.
+apiVersion: v1alpha1
+kind: KubeCoreDNSConfig
+enabled: false

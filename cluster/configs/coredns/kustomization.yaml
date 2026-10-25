@@ -1,0 +1,14 @@
+# Cluster DNS. Talos deploys CoreDNS by default; here it's disabled
+# (talos/patches/controlplane.yaml) and these manifests replace it: the same
+# objects as Talos v1.14.2's templates
+# (internal/app/machined/pkg/controllers/k8s/internal/k8stemplates/coredns.go),
+# plus JSON logs (-log-format=json, CoreDNS 1.15+) and the service name
+# annotation. Bootstrap applies them by hand before Argo CD (cluster/README.md).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: kube-system
+resources:
+  - deployment.yaml
+  - corefile.yaml
+  - service.yaml
+  - rbac.yaml

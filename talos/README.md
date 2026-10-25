@@ -6,7 +6,7 @@ Machine configs for the `homelab` cluster, generated from:
 |---|---|
 | [`secrets.sops.yaml`](secrets.sops.yaml) | Cluster secrets bundle, sops-encrypted (see [Secrets](#secrets)) |
 | [`patches/common.yaml`](patches/common.yaml) | All nodes: no Flannel, no kube-proxy (Cilium replaces both) |
-| [`patches/controlplane.yaml`](patches/controlplane.yaml) | Control plane: cert SANs, workloads allowed, JSON logs from the control plane components |
+| [`patches/controlplane.yaml`](patches/controlplane.yaml) | Control plane: cert SANs, workloads allowed, JSON logs from the control plane components, no CoreDNS (Argo CD runs it) |
 | [`nodes/`](nodes) | Per node: hostname, install disk, installer image, disk layout |
 | [`schematics/`](schematics) | Image Factory schematics (installer/ISO images) |
 | `generated/` | **Gitignored.** Rendered configs, `talosconfig`, `kubeconfig` |

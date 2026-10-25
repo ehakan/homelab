@@ -1,0 +1,35 @@
+# The cluster DNS address: kubelets hand 10.96.0.10 to every pod (Talos'
+# default for the 10.96.0.0/12 service CIDR).
+apiVersion: v1
+kind: Service
+metadata:
+  name: kube-dns
+  labels:
+    k8s-app: kube-dns
+    kubernetes.io/cluster-service: "true"
+    kubernetes.io/name: CoreDNS
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9153"
+spec:
+  selector:
+    k8s-app: kube-dns
+  clusterIP: 10.96.0.10
+  clusterIPs:
+    - 10.96.0.10
+  ipFamilies:
+    - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+    - name: dns
+      port: 53
+      protocol: UDP
+      targetPort: 53
+    - name: dns-tcp
+      port: 53
+      protocol: TCP
+      targetPort: 53
+    - name: metrics
+      port: 9153
+      protocol: TCP
+      targetPort: 9153

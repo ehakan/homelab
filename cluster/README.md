@@ -16,6 +16,7 @@ After the one-time bootstrap below, changes happen only through git: never
 | `homelab-private`           | the Applications in [ehakan/homelab-private](https://github.com/ehakan/homelab-private) `cluster/apps/` (private)             | `argocd`                    |
 | `argocd`                    | Argo CD v3.5.5 managing itself (kustomize: upstream manifests + patches)                                                      | `argocd`                    |
 | `cilium`                    | Cilium 1.20.2 (CNI, kube-proxy replacement), LAN LoadBalancer IPs `192.168.11.200–230`                                        | `kube-system`               |
+| `coredns`                   | CoreDNS 1.15.0, the cluster DNS (`kube-dns`, 10.96.0.10), in place of the one Talos deploys                                   | `kube-system`               |
 | `gateway-api`               | Gateway API CRDs v1.6.3 (standard channel)                                                                                    | cluster-wide                |
 | `agentgateway-crds`         | agentgateway's own CRDs, v1.6.0                                                                                               | cluster-wide                |
 | `agentgateway`              | agentgateway v1.6.0, the Gateway API implementation (GatewayClass `agentgateway`)                                             | `agentgateway-system`       |
@@ -40,8 +41,8 @@ in `apps/<name>.yaml`, then push. `root` picks it up.
 
 ## Bootstrap runbook
 
-Run once on a fresh cluster. Only Cilium and a basic Argo CD are installed by
-hand; Argo CD installs everything else.
+Run once on a fresh cluster. Only Cilium, CoreDNS and a basic Argo CD are
+installed by hand; Argo CD installs everything else.
 
 Prerequisites:
 
@@ -68,6 +69,17 @@ helm template cilium cilium --repo https://helm.cilium.io --version 1.20.2 \
 kubectl -n kube-system rollout status daemonset/cilium
 kubectl -n kube-system rollout status deployment/cilium-operator
 kubectl get nodes   # Ready
+```
+
+### 1b. CoreDNS
+
+Talos deploys no CoreDNS (`talos/patches/controlplane.yaml`); Argo CD needs
+cluster DNS before it can do anything, so the same manifests it later adopts
+go in by hand:
+
+```sh
+kubectl apply --server-side -k cluster/configs/coredns
+kubectl -n kube-system rollout status deployment/coredns
 ```
 
 ### 2. Basic Argo CD
@@ -111,10 +123,10 @@ This is the last manual change to the cluster.
 
 `root` creates the other Applications:
 
-- `argocd` and `cilium` adopt what steps 1–2 installed. `argocd` applies the
-  patches from [`configs/argocd/`](configs/argocd). Argo CD doesn't reload
-  `argocd-cmd-params-cm` by itself; once `argocd` has synced, restart it
-  (otherwise apps with Gateway API resources stay `OutOfSync`):
+- `argocd`, `cilium` and `coredns` adopt what steps 1–2 installed. `argocd`
+  applies the patches from [`configs/argocd/`](configs/argocd). Argo CD
+  doesn't reload `argocd-cmd-params-cm` by itself; once `argocd` has synced,
+  restart it (otherwise apps with Gateway API resources stay `OutOfSync`):
 
   ```sh
   kubectl -n argocd rollout restart statefulset/argocd-application-controller deployment/argocd-server
@@ -355,8 +367,8 @@ Kubernetes namespace is enough. Without the annotation, the collector falls
 back to the `app.kubernetes.io/instance` or `name` label, then the workload's
 name. Set in the collectors instead (`transform/service`): Talos' static pods
 (`kube-apiserver`, `kube-controller-manager`, `kube-scheduler`) and the Target
-Allocator (`otel-target-allocator`). CoreDNS (`coredns`) and the GPU
-operator's own DaemonSets keep their workload names.
+Allocator (`otel-target-allocator`). The GPU operator's own DaemonSets keep
+their workload names.
 
 Two naming styles, on purpose:
 
