@@ -22,10 +22,6 @@ patches:
     target:
       kind: Deployment
       name: argocd-redis
-  - path: patches/logformat.yaml
-    target:
-      kind: Deployment|StatefulSet
-      name: argocd-(server|repo-server|application-controller|applicationset-controller|notifications-controller)
   # No Dex: Argo CD only uses it when dex.config is set; SSO will go straight
   # to an OIDC provider (oidc.config in patches/argocd-cm.yaml).
   - target:
